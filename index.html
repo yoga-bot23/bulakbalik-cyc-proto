@@ -5152,7 +5152,8 @@ function leafInit() {
   const map = LEAF.map = Lf.map(box, { zoomControl: false, attributionControl: true, zoomSnap: .5, minZoom: 5, maxZoom: 19 }).setView([-6.1754, 106.8272], 15);
   map.attributionControl.setPrefix(false);
   Lf.tileLayer(TILE, { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
-  map.on('dragstart', () => { if (!LEAF.on) return; LEAF.follow = false; $('#gRecenter').hidden = false; });
+  map.on('dragstart zoomstart', e => { if (!LEAF.on || (e.type === 'zoomstart' && !LEAF.touch)) return; LEAF.dragAt = Date.now(); if (e.type === 'zoomstart') return; LEAF.follow = false; $('#gRecenter').hidden = false; });
+  box.addEventListener('touchstart', () => { LEAF.touch = true; }, { passive: true }); box.addEventListener('touchend', () => { LEAF.touch = false; }, { passive: true });
   $('#gRecenter').onclick = () => { LEAF.follow = true; $('#gRecenter').hidden = true; leafFollow(true); };
 }
 
@@ -5210,6 +5211,7 @@ function leafFix(pos) {
   if (!LEAF.on || !RIDE || !RIDE.gps) return;
   const c = pos.coords, here = [c.latitude, c.longitude], map = LEAF.map, g = RIDE.gps;
   if (c.accuracy > ACC_MAX && LEAF.placed) return;
+  if (!LEAF.follow && Date.now() - (LEAF.dragAt || 0) > 15000) { LEAF.follow = true; $('#gRecenter').hidden = true; }   // abis 15 dtk nggak disentuh, ngikutin lagi
   // arah: dari kompas GPS kalau gerak, kalau nggak dari 2 titik jejak terakhir
   const t = g.track, a = t[t.length - 2], b = t[t.length - 1];
   if (c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 1) LEAF.head = c.heading;

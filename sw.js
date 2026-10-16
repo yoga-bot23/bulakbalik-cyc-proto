@@ -1,6 +1,6 @@
-// Service worker Bulakbalik CYC: halaman network-first (biar update langsung kepake), sisanya cache-first.
+// Service worker Bulakbalik CYC: halaman network-first maks 3 dtk (biar update kepake, tapi sinyal jelek nggak nungguin), sisanya cache-first.
 // VERSION diganti otomatis sama publish.js tiap push.
-const VERSION = '202610161658';
+const VERSION = '202610161708';
 const CACHE = 'cyc-' + VERSION;
 const SHELL = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 
@@ -20,8 +20,10 @@ self.addEventListener('fetch', e => {
   if (url.hostname === 'tile.openstreetmap.org') return e.respondWith(tile(req));
   if (url.origin !== location.origin && !font) return;
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put('./', cp)); return r; })
-      .catch(() => caches.match('./')));
+    // sinyal jelek: tunggu jaringan maks 3 dtk, lewat itu pakai cache (yang baru tetep disimpen buat bukaan berikutnya)
+    const net = fetch(req).then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put('./', cp)); return r; });
+    const slow = new Promise(res => setTimeout(res, 3000)).then(() => caches.match('./'));
+    e.respondWith(Promise.race([net.catch(() => caches.match('./')), slow.then(hit => hit || net)]).then(r => r || net));
     return;
   }
   e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(r => {
