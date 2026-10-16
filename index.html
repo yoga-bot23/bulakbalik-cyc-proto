@@ -1,10 +1,18 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta name="robots" content="noindex,nofollow">
 <meta charset="utf-8">
+<meta name="robots" content="noindex,nofollow">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Bulakbalik CYC</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E0F12">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bulakbalik">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Unbounded:wght@600;800;900&display=swap">
@@ -4767,7 +4775,7 @@ const navMain = [['—', 'Splash', () => { hist.length = 0; go('splash'); clearT
   ['A5', 'Kenalan', () => go('a5'), 'a5'], ['A6', 'Kontak darurat', () => go('a6'), 'a6'], ['A7', 'Izin lokasi', () => go('a7'), 'a7'],
   ['A8', 'Nyiapin akun (loading)', () => go('load'), 'load'], ['A9', 'Siap gowes', () => { if (cur === 'a9') fireConfetti(); go('a9'); }, 'a9'], ['A10', 'Notif & baterai (nanti)', () => go('a8'), 'a8']];
 const navNeg = [
-  ['N1', 'Format email salah', () => { go('a2'); setTimeout(() => { $('#email').value = 'goy@gmail'; $('#sendCode').disabled = false; submitEmail(); }, 700); }],
+  ['N1', 'Format email salah', () => { go('a2'); setTimeout(() => { $('#email').value = 'goy.demo@gmail'; $('#sendCode').disabled = false; submitEmail(); }, 700); }],
   ['N2', 'Kode salah', () => { unlock(); go('a3'); setTimeout(() => { wrong = 2; '111111'.split('').forEach(key); }, 700); }],
   ['N3', 'Kode kedaluwarsa', () => { unlock(); go('a3'); setTimeout(setExpired, 700); }],
   ['N4', 'Kebanyakan minta kode', () => { unlock(); go('a3'); setTimeout(() => { resendCount = 3; resLeft = 0; tickRes(); $('#resend').click(); }, 700); }],
@@ -4868,6 +4876,9 @@ size();
 if (document.fonts) document.fonts.ready.then(size);
 requestAnimationFrame(loop);
 })();
+// PWA: daftarin service worker (cuma jalan di http/https, file:// dilewatin)
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol))
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW gagal', e)));
 </script>
 </body>
 </html>
