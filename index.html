@@ -82,6 +82,8 @@ input{font:inherit;color:inherit}
 /* ---------- screens ---------- */
 .scr{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;padding:56px 24px 28px;visibility:hidden;pointer-events:none}
 .scr.on{visibility:visible;pointer-events:auto;z-index:10}
+/* layar yang nggak keliatan: semua animasinya di-pause biar HP nggak ngitung terus */
+.scr:not(.on):not(.leaving),.scr:not(.on):not(.leaving) *,.scr:not(.on):not(.leaving) *::before,.scr:not(.on):not(.leaving) *::after{animation-play-state:paused!important}
 .scr.leaving{visibility:visible;z-index:9;animation:leave .7s var(--ease) both}
 .scr.entering{animation:enter .75s var(--ease) both}
 .scr.entering.back{animation:enterBack .75s var(--ease) both}
@@ -1379,6 +1381,13 @@ body.real #rMeet,body.real #rMeetD,body.real #rMeetGanti{display:none}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+/* skeleton & dialog yang lagi ketutup: animasinya nggak usah jalan */
+.skel:not(.on) i{animation:none}
+.overlay:not(.on),.overlay:not(.on) *,.overlay:not(.on) *::before,.overlay:not(.on) *::after{animation-play-state:paused!important}
+/* mode ringan: hiasan yang gerak terus dimatiin, titik LIVE kedip pakai opacity (murah) */
+body.lite .btn.pri::before,body.lite .prof .big,body.lite .story .rg.live,body.lite .eart::before,body.lite .eart::after,body.lite .livebar::before{animation:none!important}
+body.lite .live,body.lite .st.ok::before{box-shadow:none!important;animation:liteBlink 1.6s ease-in-out infinite!important}
+@keyframes liteBlink{50%{opacity:.35}}
 body.lite .grain{display:none}
 body.lite .glow{filter:none}
 body.lite *,body.lite *::before,body.lite *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
@@ -5225,7 +5234,7 @@ function leafBear(force) {
   if (!LEAF.rot || !LEAF.map) return;
   const want = mapUp ? LEAF.head : 0;
   const d = ((want - (LEAF.bear || 0)) % 360 + 540) % 360 - 180;   // selisih terpendek
-  if (!force && Math.abs(d) < 4) return;
+  if (!force && Math.abs(d) < 6) return;
   LEAF.bear = force ? want : ((LEAF.bear || 0) + d * .45 + 360) % 360;
   LEAF.map.setBearing(-LEAF.bear);
 }
@@ -5242,7 +5251,8 @@ function leafFollow(anim) {
   const dy = (leafTop() + (H - leafBot())) / 2 - H / 2;   // posisi lo di tengah area yang keliatan
   if (Math.abs(map.getZoom() - z) > .01) map.setZoom(z, { animate: false });
   const p = map.latLngToContainerPoint(LEAF.me.getLatLng());   // pakai titik layar, jadi tetep bener pas peta muter
-  map.setView(map.containerPointToLatLng(p.subtract([0, dy])), z, { animate: !!anim, duration: .6 });
+  const far = Math.hypot(p.x - map.getSize().x / 2, p.y - map.getSize().y / 2 - dy) > 60;
+  map.setView(map.containerPointToLatLng(p.subtract([0, dy])), z, { animate: !!anim && far, duration: .4 });
 }
 
 /* tiap fix GPS */
@@ -5258,7 +5268,8 @@ function leafFix(pos) {
   LEAF.me.setLatLng(here); LEAF.acc.setLatLng(here).setRadius(Math.max(4, c.accuracy));
   if (!LEAF.placed) { LEAF.me.addTo(map); LEAF.acc.addTo(map); LEAF.placed = true; map.setZoom(17, { animate: false }); }
   leafBear(); leafArrow();
-  LEAF.track.setLatLngs(t.map(p => [p[0], p[1]]));
+  const tl = LEAF.track.getLatLngs();
+  if (tl.length && tl.length === t.length - 1) LEAF.track.addLatLng([b[0], b[1]]); else LEAF.track.setLatLngs(t.map(p => [p[0], p[1]]));
   if (LEAF.route && g.snap != null) LEAF.done.setLatLngs(leafCut(g.snap));
   leafFollow(true);
 }
@@ -5284,7 +5295,17 @@ gpsBind = function () { _gpsBindM.apply(this, arguments); RIDE.gps ? leafOn() : 
 const _rideFixM = rideFix;
 rideFix = function (pos) { _rideFixM.apply(this, arguments); leafFix(pos); };
 const _renderMapM = renderMap;
-renderMap = function () { _renderMapM.apply(this, arguments); if (LEAF.on) leafArrow(); };
+renderMap = function (dt) {
+  if (!LEAF.on) return _renderMapM.apply(this, arguments);
+  if ((RIDE._st = (RIDE._st || 0) + (dt || 0)) < .25) return;   // peta OSM gerak sendiri pas ada fix GPS
+  RIDE._st = 0;
+  const m = me(); updTurn(GW.turnD.findIndex(d => d > m.d - 12), m);
+  $('#gKm').textContent = fmtKm(RIDE.gps ? RIDE.gps.dist : m.d - m.d0);
+  $('#gTime').textContent = fmtDur(RIDE.simT);
+  $('#gSpd').textContent = Math.round(m.v * 3.6);
+  $('#gLeft').textContent = isFree() ? '—' : fmtKm(GW.total - m.d);
+  if (RIDE.halt && $('#gWait')) $('#gWait').textContent = fmtDur(RIDE.halt.dur || 0);
+};
 const _xDecideM = xDecide;
 xDecide = function (a) { _xDecideM.apply(this, arguments); if (a === 'gpsSim') leafOff(); };
 const _onEnterGpsM = onEnterGps;
