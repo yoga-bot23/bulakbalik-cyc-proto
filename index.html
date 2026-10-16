@@ -2149,6 +2149,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation-duration:.01ms!impo
             <button class="linkbtn sub" id="sFree">atau gowes bebas tanpa rute</button>
           </div>
           <button class="estep dash rv" data-gpx style="width:100%;margin-top:14px"><span class="ei"><i data-ic="file"></i></span><span class="tx"><b>Punya file GPX? Upload di sini</b><small>Dari gpx.studio, Strava, Komoot, atau Garmin</small></span><i data-ic="chev"></i></button>
+          <button class="row rv" id="gpsTog" style="width:100%;margin-top:14px;text-align:left;color:inherit;font:inherit"><span class="ri"><i data-ic="pin" data-sz="22"></i></span><span class="rt"><b>Pakai GPS HP beneran</b><span id="gpsTogD"></span></span><span class="sw"></span></button>
           <div class="notice ok rv" style="animation:none"><i data-ic="shield"></i><div><b>Posisi lo nggak kebagi ke siapa-siapa</b>Kalau ada apa-apa, tombol Darurat di peta ngabarin kontak darurat (<span class="ecN">Ibu</span>) + lokasi lo.</div></div>
         </div>
         <div class="foot"><button class="btn pri mag" id="s2Go">Mulai gowes sendiri</button></div>
@@ -3701,7 +3702,7 @@ function startRide(meK, solo = false) {
     $('#gRiders').appendChild(el); x.el = el;
   });
   $('#gSig').hidden = true; $('#gAlbumN').hidden = true; closeCam(); $('#gRiders').classList.remove('stale');
-  renderGMem(); setFF(12);
+  renderGMem(); setFF(12); if (solo) gpsBind(); else { RIDE.gps = null; if (GPS.id != null) gpsStop(); $('#gFF').hidden = false; }
   const nav = riders[0], swp = riders.find(x => x.roles.includes('swp'));
   later2(() => gNote(solo ? 'Jalan! Rekaman mulai, aba-aba ngikutin rute.' : me().roles.includes('dok') ? 'Lo Dokumentasi. Jepret sebanyak-banyaknya, semua masuk album 📸'
     : `Jalan! ${nav.me ? 'Lo' : PPL[nav.k].n} paling depan${swp ? `, ${swp.me ? 'lo' : PPL[swp.k].n} nyapu paling belakang` : ''}.`), 700);
@@ -3731,7 +3732,7 @@ function renderGMem() {
 function drawGowes(t) {
   if (!RIDE || cur !== 'g1') { if (RIDE) RIDE.lt = 0; return; }
   const dt = RIDE.lt ? Math.min(.05, (t - RIDE.lt) / 1000) : 0; RIDE.lt = t;
-  if (!RIDE.done) simStep(dt * (RIDE.halt && !RIDE.sweep ? 90 : SIMX));
+  if (!RIDE.done) RIDE.gps ? gpsTick() : simStep(dt * (RIDE.halt && !RIDE.sweep ? 90 : SIMX));
   renderMap(dt);
 }
 function simStep(sdt) {
@@ -3806,9 +3807,9 @@ function renderMap(dt) {
   updTurn(ni, m);
   if ((RIDE._st = (RIDE._st || 0) + dt) > .12) {
     RIDE._st = 0;
-    $('#gKm').textContent = fmtKm(m.d - m.d0);
+    $('#gKm').textContent = fmtKm(RIDE.gps ? RIDE.gps.dist : m.d - m.d0);
     $('#gTime').textContent = fmtDur(RIDE.simT);
-    $('#gSpd').textContent = Math.round(m.v * 3.6 + (m.v > 1 ? Math.sin(RIDE.simT) * .6 : 0));
+    $('#gSpd').textContent = Math.round(m.v * 3.6 + (m.v > 1 && !RIDE.gps ? Math.sin(RIDE.simT) * .6 : 0));
     $('#gLeft').textContent = isFree() ? '—' : fmtKm(GW.total - m.d);
     if (RIDE.halt && $('#gWait')) $('#gWait').textContent = fmtDur(RIDE.halt.dur || 0);
   }
@@ -3833,7 +3834,7 @@ function updTurn(ni, m) {
   }
   if ($('#gDist').textContent !== dist) $('#gDist').textContent = dist;
   const nav = RIDE.riders[0];
-  $('#gFrom').textContent = RIDE.solo ? 'Gowes sendiri · posisi nggak kebagi' : nav.me ? 'Lo Navigator · rombongan ngikutin lo' : `Aba-aba ngikutin Navigator ${PPL[nav.k].n}`;
+  $('#gFrom').textContent = RIDE.solo ? (RIDE.gps ? gpsLabel() : 'Gowes sendiri · posisi nggak kebagi') : nav.me ? 'Lo Navigator · rombongan ngikutin lo' : `Aba-aba ngikutin Navigator ${PPL[nav.k].n}`;
 }
 
 /* ---------- G2 ban bocor (kejadian otomatis) + G4 berhenti ---------- */
@@ -4001,9 +4002,9 @@ function arrive() {
   later2(() => { if (cur === 'g1' && !RIDE.done) finishRide(); }, 2600);
 }
 function finishRide() {
-  RIDE.done = true; closeCam(); closeAll();
-  const m = me(), dist = Math.max(0, m.d - m.d0), mv = Math.max(60, RIDE.moveT);
-  RIDE.res = { dist, dur: RIDE.simT, move: mv, avg: dist / mv * 3.6, max: RIDE.maxV * 3.6 + 4.2, climb: Math.round(dist / 1000 * 6.4) };
+  RIDE.done = true; closeCam(); closeAll(); if (RIDE.gps) gpsStop();
+  const m = me(), dist = Math.max(0, RIDE.gps ? RIDE.gps.dist : m.d - m.d0), mv = Math.max(60, RIDE.moveT);
+  RIDE.res = { dist, dur: RIDE.simT, move: mv, avg: dist / mv * 3.6, max: RIDE.maxV * 3.6 + (RIDE.gps ? 0 : 4.2), climb: Math.round(dist / 1000 * 6.4) };
   countAch();
   go('g7');
 }
@@ -4063,7 +4064,7 @@ function onEnterGowes(id, back) {
   if (id === 'g1') { if (!RIDE || RIDE.done || (!back && !RIDE.fresh)) startRide(cdFrom === 'r6' ? 'J' : 'G', cdFrom === 's2'); RIDE.fresh = false; RIDE.lt = 0; }
   if (id === 'g7' && !back) renderSummary();
   if (id === 'h5' && !back && RIDE && RIDE.done && !RIDE.posted) fillH5();
-  onEnterState(id, back); onEnterSolo(id, back); onEnterExtra(id, back);
+  onEnterState(id, back); onEnterSolo(id, back); onEnterGps(id); onEnterExtra(id, back);
 }
 
 /* ================= P · AKUN, N12, E · EMPTY STATE, X · STATE ERROR ================= */
@@ -4332,6 +4333,7 @@ function sampleGpx() {
 
 /* ---------- S2 gowes sendiri ---------- */
 $('#s2Go').addEventListener('click', e => {
+  if (!gpsArm()) return;
   R.name = $('#soloName').value.trim() || `Gowes pagi ${nick() || 'Goy'}`; R.meet = 'titik lo';
   cdFrom = 's2'; go('r8', e);
 });
@@ -4766,6 +4768,149 @@ function openJam() {
 ['#whH', '#whM'].forEach(id => $(id).addEventListener('scroll', e => { markWheel(e.target); clearTimeout(e.target._t); e.target._t = setTimeout(jamCheck, 90); }));
 $('#jamOk').onclick = () => { WH.h = wheelVal($('#whH')); WH.m = wheelVal($('#whM')) * 5; closeAll(); renderWhen(); };
 renderWhen();
+
+/* ================= S5 · GPS ASLI (watchPosition + Wake Lock) — mode gowes sendiri ================= */
+/* HP: default nyala. Desktop / demo dari panel nav: tetep simulasi. Rute contoh (bukan GPX) nggak bisa dipakai bareng GPS. */
+const GPS = { id: null, last: null, lock: null, err: 0, armed: false };
+const gpsOk = () => 'geolocation' in navigator && window.isSecureContext;
+GPS.want = gpsOk() && matchMedia('(pointer:coarse)').matches;
+const gpxOn = () => !rFree && routes[ri] && routes[ri][3];
+
+function gpsTogUI() {
+  const b = $('#gpsTog'); if (!b) return;
+  b.classList.toggle('on', GPS.want); b.disabled = !gpsOk();
+  $('#gpsTogD').textContent = !gpsOk() ? 'Browser ini nggak bisa GPS (butuh https).'
+    : !GPS.want ? 'Mati: posisi disimulasiin (buat demo).'
+      : gpxOn() || rFree ? 'Jarak & kecepatan dari GPS. Layar tetep nyala selama gowes.'
+        : 'Rute contoh nggak nyambung GPS. Upload GPX atau gowes bebas.';
+}
+$('#gpsTog').addEventListener('click', () => { GPS.want = !GPS.want; gpsTogUI(); });
+const _setRoute = setRoute;
+setRoute = function () { _setRoute.apply(this, arguments); gpsTogUI(); };
+
+/* dipanggil tombol "Mulai gowes sendiri" (S2). false = jangan lanjut */
+function gpsArm() {
+  GPS.armed = false;
+  if (!GPS.want || !gpsOk()) { gpsStop(); return true; }
+  if (!gpxOn() && !rFree) { toast('Rute contoh nggak bisa dipakai pake GPS. Upload GPX atau pilih gowes bebas.', null); return false; }
+  GPS.armed = true; GPS.err = 0;
+  gpsWatch(); wakeOn();   // minta izin pas ada tap user, sebelum hitung mundur
+  return true;
+}
+function gpsWatch() {
+  if (GPS.id != null) return;
+  GPS.id = navigator.geolocation.watchPosition(onFix, onGpsErr, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+}
+function gpsStop() {
+  if (GPS.id != null) navigator.geolocation.clearWatch(GPS.id);
+  GPS.id = null; GPS.last = null; GPS.armed = false; wakeOff();
+}
+
+/* ---------- Wake Lock: layar jangan mati ---------- */
+async function wakeOn() {
+  if (!('wakeLock' in navigator) || GPS.lock) return;
+  try { GPS.lock = await navigator.wakeLock.request('screen'); GPS.lock.addEventListener('release', () => { GPS.lock = null; }); } catch (_) { GPS.lock = null; }
+}
+function wakeOff() { if (GPS.lock) GPS.lock.release().catch(() => { }); GPS.lock = null; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !RIDE || !RIDE.gps || RIDE.done) return;
+  wakeOn(); RIDE.gps.back = true;   // fix berikutnya boleh nyambung jarak dari celah
+});
+
+/* ---------- pasang ke gowesan (dipanggil startRide) ---------- */
+function gpsBind() {
+  if (!RIDE.solo || !GPS.armed) { RIDE.gps = null; gpsStop(); $('#gFF').hidden = false; return; }
+  RIDE.gps = { t0: Date.now(), dist: 0, prev: null, track: [], snap: null, off: 0, offNoted: false, fixAt: 0, acc: null };
+  $('#gFF').hidden = true;
+  const m = me(); m.d = m.d0 = 0; m.v = 0;
+  gpsWatch(); wakeOn();
+  if (GPS.err === 1) return gpsDenied();
+  if (GPS.last && Date.now() - GPS.last.timestamp < 15000) rideFix(GPS.last);
+}
+
+function onFix(pos) { GPS.last = pos; GPS.err = 0; if (RIDE && RIDE.gps && !RIDE.done) rideFix(pos); }
+let gpsErrNoteAt = 0;
+function onGpsErr(e) {
+  GPS.err = e.code;
+  if (!RIDE || !RIDE.gps || RIDE.done || cur !== 'g1') return;
+  if (e.code === 1) return gpsDenied();
+  if (Date.now() - gpsErrNoteAt > 30000) { gpsErrNoteAt = Date.now(); gNote('Sinyal GPS belum dapet. Coba ke tempat yang lebih terbuka.', 'warn'); }
+}
+function gpsDenied() {
+  RIDE.gpsOff = true; renderGMem();
+  showSig('err', 'ic:gpsoff', 'Izin lokasi ditolak', 'Buka pengaturan browser → Izin situs → Lokasi → Izinkan, terus tap Coba lagi.', [['gpsRetry', 'Coba lagi'], ['gpsSim', 'Pakai simulasi', 'ghost']]);
+}
+const _xDecide = xDecide;
+xDecide = function (a) {
+  if (a === 'gpsRetry') { hideSig(); gpsStop(); GPS.armed = true; GPS.err = 0; RIDE.gpsOff = false; renderGMem(); gpsWatch(); wakeOn(); gNote('Nyari sinyal GPS lagi…'); return; }
+  if (a === 'gpsSim') { hideSig(); gpsStop(); RIDE.gps = null; RIDE.gpsOff = false; $('#gFF').hidden = false; renderGMem(); gNote('Oke, posisi disimulasiin.'); return; }
+  return _xDecide(a);
+};
+
+/* ---------- tiap fix GPS ---------- */
+const ACC_MAX = 50, V_MAX = 25;   // akurasi > 50 m dibuang; > 90 km/j = loncat, dibuang
+function rideFix(pos) {
+  const g = RIDE.gps, c = pos.coords, m = me(), ts = pos.timestamp || Date.now(), here = [c.latitude, c.longitude];
+  g.acc = c.accuracy; g.fixAt = Date.now();
+  if (c.accuracy > ACC_MAX) return;
+  g.track.push([c.latitude, c.longitude, c.altitude, ts]);
+  if (!g.prev) { g.prev = { p: here, ts }; placeMe(here); return; }
+  const dtF = Math.max(.5, (ts - g.prev.ts) / 1000), dd = hav(g.prev.p, here);
+  if (dd / dtF > V_MAX) return;
+  const vGps = c.speed != null && c.speed >= 0 ? c.speed : dd / dtF;
+  if (dd < Math.max(4, c.accuracy * .6) && vGps < 1) { m.v *= .5; if (m.v < .3) m.v = 0; return; }   // diem, cuma goyang GPS
+  if (g.back && dtF > 30) gNote(`Lo sempet keluar app ${Math.round(dtF / 60) || 1} mnt. Jaraknya disambung garis lurus.`, 'warn');
+  g.back = false;
+  g.dist += dd; g.prev = { p: here, ts };
+  m.v += (vGps - m.v) * .5;
+  if (vGps > .8) RIDE.moveT += Math.min(dtF, 10);
+  if (c.accuracy <= 20 && vGps < V_MAX) RIDE.maxV = Math.max(RIDE.maxV, vGps);
+  placeMe(here);
+}
+
+/* posisi di peta: GPX = nempel ke titik terdekat di rute, gowes bebas = jarak kumulatif */
+function placeMe(here) {
+  const g = RIDE.gps, m = me();
+  if (!gpxOn()) { m.d = g.dist; return; }
+  const [la0, lo0] = GW.geo, x = (here[1] - lo0) * Math.cos(la0 * Math.PI / 180) * 111320, y = -(here[0] - la0) * 110540;
+  const near = (from, to) => {
+    let best = null;
+    for (let i = Math.max(0, from); i < Math.min(GW.segs.length, to); i++) {
+      const s = GW.segs[i], vx = s.ex - s.sx, vy = s.ey - s.sy, L2 = vx * vx + vy * vy || 1;
+      const t = Math.max(0, Math.min(1, ((x - s.sx) * vx + (y - s.sy) * vy) / L2)), px = s.sx + vx * t, py = s.sy + vy * t, e = Math.hypot(x - px, y - py);
+      if (!best || e < best.e - 30 || (e < best.e && Math.abs(e - best.e) <= 30 && i * 20 < best.d)) best = { e, d: i * 20 + t * Math.sqrt(L2) };   // seri ±30 m: ambil yang paling awal (rute muter)
+    }
+    return best;
+  };
+  let b;
+  if (g.snap == null) b = near(0, GW.segs.length);
+  else {
+    const i0 = Math.floor(g.snap / 20);
+    b = near(i0 - 10, i0 + 40);
+    if (!b || b.e > 80) { const all = near(0, GW.segs.length); if (all && all.e < 40) b = all; }
+  }
+  if (!b) return;
+  g.off = b.e;
+  if (b.e > 60) { if (!g.offNoted && g.snap != null) { g.offNoted = true; gNote(`Lo keluar rute ±${Math.round(b.e / 10) * 10} m. Balik ke garis kuning ya.`, 'warn'); } }
+  else { if (g.offNoted) gNote('Udah balik ke rute 👍', 'ok'); g.offNoted = false; g.snap = b.d; m.d = b.d; }
+  if (!RIDE.arrived && g.snap != null && g.snap >= GW.total - 40 && g.dist >= GW.total * .8) arrive();
+}
+
+/* tiap frame (gantiin simStep pas GPS nyala) */
+function gpsTick() {
+  const g = RIDE.gps, m = me();
+  RIDE.simT = (Date.now() - g.t0) / 1000;
+  if (Date.now() - g.fixAt > 8000) { m.v *= .9; if (m.v < .3) m.v = 0; }
+}
+function gpsLabel() {
+  const g = RIDE.gps, age = Date.now() - g.fixAt;
+  if (!g.fixAt || age > 15000) return 'Nyari sinyal GPS…';
+  if (g.acc > ACC_MAX) return `GPS lemah ±${Math.round(g.acc)} m`;
+  return `GPS ±${Math.round(g.acc)} m${GPS.lock ? ' · layar nyala' : ''}${g.offNoted ? ' · keluar rute' : ''}`;
+}
+
+/* ---------- hook navigasi ---------- */
+function onEnterGps(id) { if (id === 's2') gpsTogUI(); }
 
 
 /* ---------- nav panel ---------- */
