@@ -1,6 +1,6 @@
 // Service worker Bulakbalik CYC: halaman network-first maks 3 dtk (biar update kepake, tapi sinyal jelek nggak nungguin), sisanya cache-first.
 // VERSION diganti otomatis sama publish.js tiap push.
-const VERSION = '202610161708';
+const VERSION = '202610161720';
 const CACHE = 'cyc-' + VERSION;
 const SHELL = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 
@@ -16,7 +16,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  const font = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) || (url.hostname === 'unpkg.com' && url.pathname.startsWith('/leaflet@'));
+  const font = /fonts\.(googleapis|gstatic)\.com$/.test(url.hostname) || (url.hostname === 'unpkg.com' && /^\/leaflet(-rotate)?@/.test(url.pathname));
   if (url.hostname === 'tile.openstreetmap.org') return e.respondWith(tile(req));
   if (url.origin !== location.origin && !font) return;
   if (req.mode === 'navigate') {
