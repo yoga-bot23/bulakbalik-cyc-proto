@@ -1357,6 +1357,19 @@ body.newbie #grid3{display:block}
 /* tile OSM terang → digelapin biar nyatu sama app */
 #gLeaf .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.35)}
 
+/* S2+S3 · akun baru (body.real) */
+body.real .story:not(:first-child),body.real .livebar,body.real .filters,body.real #bellBd,body.real .a1-brand small,body.real #ovGoogle .acc[data-acc]{display:none}
+body:not(.real) .greal,body:not(.real) .meetin{display:none}
+body.real #rMeet,body.real #rMeetD,body.real #rMeetGanti{display:none}
+.meetin{width:100%;background:transparent;border:0;outline:0;color:inherit;font:600 15px var(--f-ui,Inter),sans-serif;padding:6px 0}
+.meetin::placeholder{color:var(--mu);font-weight:500}
+.card.err{box-shadow:0 0 0 2px var(--red) inset}
+.greal small{display:block;color:var(--mu);font-size:12px;margin-top:10px;text-align:center}
+.noroute{display:grid;place-items:center;width:100%;height:100%;color:var(--mu);background:var(--s2)}
+.noroute.big{height:200px}
+.demohint{font-size:12px!important;opacity:.7;margin:6px 0 10px}
+#grid3 .noroute svg,.zrow .th .noroute svg{width:28px!important;height:28px!important}
+
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -2986,7 +2999,7 @@ const PPL = {
   G: { n: 'Goy', c: 'var(--lime)' }, S: { n: 'Saipul', c: 'var(--brand)', fg: '#fff' }, J: { n: 'Juleha', c: 'var(--yel)' },
   U: { n: 'Ujang', c: 'var(--blue)' }, M: { n: 'Mamat', c: '#FF8A3D' }, B: { n: 'Bang Jali', c: '#B57BFF' }, R: { n: 'Rina', c: '#FF7AB6' },
 };
-const pv = (k, s = 40, extra = '') => `<span class="pv" style="--s:${s}px;background:${PPL[k].c};color:${PPL[k].fg || '#0E0F12'}">${k}${extra}</span>`;
+const pv = (k, s = 40, extra = '') => `<span class="pv" style="--s:${s}px;background:${PPL[k].c};color:${PPL[k].fg || '#0E0F12'}">${PPL[k].i || k}${extra}</span>`;
 function hydrate(root = document) {
   $$('.back:empty', root).forEach(b => b.innerHTML = BACKSVG);
   $$('i[data-ic]', root).forEach(i => { i.outerHTML = `<i class="ic"${i.getAttribute('style') ? ` style="${i.getAttribute('style')}"` : ''}>${icon(i.dataset.ic, +i.dataset.sz || 18)}</i>`; });
@@ -5229,6 +5242,237 @@ onEnterGps = function (id) {
   if (id === 'g1' && LEAF.on) setTimeout(() => { LEAF.map.invalidateSize(); leafPanel(); leafFollow(false); }, 60);
   if (id !== 'g1' && LEAF.on && (!RIDE || RIDE.done)) leafOff();
 };
+
+/* ================= S2 + S3 · AKUN BARU BENERAN (tanpa dummy) =================
+   Default: app kerasa kayak baru diinstal. Isinya cuma punya lo sendiri (gowesan, rute GPX, pencapaian).
+   Mode DEMO (data Saipul, Juleha, dkk.) nyala kalau lo klik tombol di panel kiri, atau buka pakai ?demo.
+   Semua lewat wrapper fungsi, file lain nggak diubah logikanya. */
+let DEMO = false;
+const MY_KEY = 'cyc.my', ACH_KEY = 'cyc.ach', ROUTES_KEY = 'cyc.routes';
+const ZERO_ACH = () => Object.fromEntries(Object.keys(ACH_DEMO).map(k => [k, 0]));
+
+/* ---------- snapshot data demo (buat dibalikin pas DEMO nyala) ---------- */
+const SNAP = {
+  posts: [...posts], routes: [...routes], meets: [...meets], PEOPLE: [...PEOPLE], AJAK: [...AJAK], NGOPI: [...NGOPI], RIWAYAT: [...RIWAYAT],
+  following: [...following], tagged: [...tagged], h5Photos: [...h5Photos], PROF: { ...PROF, bikes: new Set(PROF.bikes) },
+  h5Story: $('#h5Story').value, h6User: $('#h6User').textContent, R: { route: R.route, meet: R.meet },
+};
+const refill = (arr, src) => { arr.length = 0; arr.push(...src); };
+/* "G" = lo: di akun baru nama + huruf avatar ngikutin nama lo, bukan Goy */
+Object.defineProperties(PPL.G, {
+  n: { get: () => DEMO ? 'Goy' : (nick() || 'Lo'), set() { }, configurable: true },
+  i: { get: () => DEMO ? 'G' : ((nick() || 'L')[0] || 'L').toUpperCase(), configurable: true },
+});
+
+/* ---------- riwayat gowesan lo sendiri (localStorage) ---------- */
+let MY = lsGet(MY_KEY) || [];
+function myLog() {
+  if (DEMO || !RIDE || !RIDE.done || RIDE.myLogged) return;
+  RIDE.myLogged = true;
+  const tr = RIDE.gps && RIDE.gps.track.length > 1 ? RIDE.gps.track : (gpxOn() ? routes[ri][3] : null);
+  const step = tr ? Math.max(1, Math.ceil(tr.length / 160)) : 1;
+  MY.unshift({ at: Date.now(), name: R.name || 'Gowesan', km: RIDE.res.dist, solo: !!RIDE.solo, n: RIDE.riders.length, route: isFree() ? 'Gowes bebas' : R.route, pts: tr ? tr.filter((_, i) => i % step === 0).map(p => [+p[0].toFixed(5), +p[1].toFixed(5)]) : null });
+  MY = MY.slice(0, 30);
+  while (MY.length && !lsSet(MY_KEY, MY)) MY.pop();
+}
+const myThumb = (m, w, h) => m.pts && m.pts.length > 1 ? gpxSvg(m.pts, w, h, { thin: 1 }) : `<span class="noroute">${icon(m.solo ? 'bike' : 'group', 26)}</span>`;
+const myDate = t => { const d = new Date(t); return `${DOW[d.getDay()]}, ${d.getDate()} ${MON[d.getMonth()]}`; };
+
+/* ---------- rute GPX yang lo upload kesimpen ---------- */
+function saveRoutes() {
+  if (DEMO) return;
+  const list = routes.filter(r => r[3]).map(r => { const s = Math.max(1, Math.ceil(r[3].length / 1500)); return [r[0], r[1], 0, r[3].filter((_, i) => i % s === 0 || i === r[3].length - 1)]; });
+  lsSet(ROUTES_KEY, list.slice(-8));
+}
+
+/* ---------- masuk mode akun baru / mode demo ---------- */
+function goReal() {
+  DEMO = false; document.body.classList.add('real');
+  [posts, meets, PEOPLE, AJAK, NGOPI, RIWAYAT, h5Photos].forEach(a => a.length = 0);
+  refill(routes, lsGet(ROUTES_KEY) || []);
+  following.clear(); tagged = []; renderTags(); renderH5Ph();
+  ri = 0; rFree = false; R.route = ''; R.meet = '';
+  Object.assign(PROF, { user: '', bio: '', city: '', bikes: new Set() });
+  $('#h5Story').value = '';
+  ACH = { ...ZERO_ACH(), ...(lsGet(ACH_KEY) || {}) };
+  resetLobby(); resetDev(); setNewbie(true, true); setRoute(); syncLabels();
+}
+function goDemo() {
+  if (DEMO) return;
+  DEMO = true; document.body.classList.remove('real');
+  refill(posts, SNAP.posts); refill(routes, SNAP.routes); refill(meets, SNAP.meets); refill(PEOPLE, SNAP.PEOPLE);
+  refill(AJAK, SNAP.AJAK); refill(NGOPI, SNAP.NGOPI); refill(RIWAYAT, SNAP.RIWAYAT); refill(h5Photos, SNAP.h5Photos);
+  SNAP.following.forEach(k => following.add(k)); tagged = [...SNAP.tagged]; renderTags(); renderH5Ph();
+  Object.assign(PROF, { ...SNAP.PROF, bikes: new Set(SNAP.PROF.bikes) });
+  $('#h5Story').value = SNAP.h5Story; $('#h6User').textContent = SNAP.h6User;
+  ri = 0; mi = 0; rFree = false; R.route = SNAP.R.route; R.meet = SNAP.R.meet;
+  $('#rMeet').textContent = meets[0][0]; $('#rMeetD').textContent = meets[0][1];
+  resetLobby(); resetDev(); setNewbie(false); setRoute(); syncLabels();
+}
+function syncLabels() {
+  $$('#s-r1 .lbl span, #s-s2 .lbl span').forEach(s => { if (/opsional|wajib/.test(s.textContent)) s.textContent = DEMO ? 'opsional' : 'wajib'; });
+}
+
+/* ---------- R1/S2: rute wajib dipilih, titik kumpul diketik sendiri ---------- */
+const noRoute = () => !rFree && !routes[ri];
+const _setRouteF = setRoute;
+setRoute = function () {
+  if (!noRoute()) { _setRouteF.apply(this, arguments); $('#rRouteGanti').textContent = $('#s-s2 #sRoute [data-routes]').textContent = 'Ganti'; saveRoutes(); return; }
+  R.route = '';
+  ['r', 's'].forEach(p => {
+    $(`#${p}RouteN`).textContent = 'Belum pilih rute'; $(`#${p}RouteD`).textContent = 'Upload GPX, atau gowes bebas tanpa rute';
+    $(`#${p}RouteMap`).innerHTML = `<span class="noroute">${icon('route', 26)}</span>`;
+    $(`#${p}Route`).classList.remove('free'); $(`#${p}Free`).classList.remove('on');
+    $(`#${p}Free`).textContent = 'atau gowes bebas tanpa rute';
+  });
+  $('#rRouteGanti').textContent = $('#s-s2 #sRoute [data-routes]').textContent = 'Pilih';
+  gpsTogUI(); $('#gpsTogD') && GPS.want && gpsOk() && ($('#gpsTogD').textContent = 'Pilih rute GPX atau gowes bebas dulu.');
+};
+const _openRoutes = openRoutes;
+openRoutes = function () {
+  _openRoutes();
+  if (!routes.length) $('#routeList').innerHTML = `<div class="zempty" style="padding:18px 8px">Belum ada rute kesimpen.<br>Upload file GPX di atas, nanti kesimpen di sini.</div>`;
+};
+$('#rMeet').closest('.pt').insertAdjacentHTML('beforeend', `<input id="rMeetIn" class="meetin" maxlength="48" autocomplete="off" placeholder="Mis. depan Stasiun Sudirman">`);
+$('#rMeetIn').addEventListener('input', e => { R.meet = e.target.value.trim(); $('#rMeetIn').closest('.card').classList.remove('err'); });
+
+const needRoute = el => { toast('Pilih rute dulu: upload GPX atau gowes bebas.', null); shake(el); };
+document.addEventListener('click', e => {
+  if (DEMO) return;
+  const t = e.target.closest('#s2Go, #r1Next, #findBtn'); if (!t) return;
+  if (t.id === 's2Go' && noRoute()) { e.stopImmediatePropagation(); needRoute($('#sRoute')); }
+  if (t.id === 'r1Next') {
+    if (noRoute()) { e.stopImmediatePropagation(); needRoute($('#rRoute')); return; }
+    if (!R.meet) { e.stopImmediatePropagation(); const c = $('#rMeetIn').closest('.card'); c.classList.add('err'); shake(c); $('#rMeetIn').focus(); toast('Titik kumpulnya di mana? Ketik dulu.', null); }
+  }
+  if (t.id === 'findBtn') {   // belum ada server: kode siapa pun belum bisa dicari
+    e.stopImmediatePropagation(); if (jc.length < 6) return;
+    t.innerHTML = '<span class="spin"></span>Nyari rombongan…';
+    setTimeout(() => {
+      t.textContent = 'Cari rombongan'; if (cur !== 'j6') return;
+      $('#codeIn').classList.add('bad'); shake($('#codeIn')); $('#codeMsg').className = 'msg err';
+      $('#codeMsg').textContent = 'Kode nggak ketemu. Gabung rombongan temen beneran nyusul (butuh server), di versi tes ini belum bisa.';
+    }, 900);
+  }
+}, true);
+
+/* ---------- lobi: baru lo doang, nggak ada yang tiba-tiba minta gabung ---------- */
+const _resetLobbyF = resetLobby;
+resetLobby = function () {
+  _resetLobbyF();
+  if (!DEMO) { L.req = []; L.mem = [{ k: 'G', roles: ['kap', 'nav'], ready: true, me: true }]; }
+};
+const _soloDemoF = soloDemo;
+soloDemo = function () { if (DEMO) _soloDemoF(); };
+let lobbyOn = false;
+
+/* ---------- akun: perangkat, Google, profil ---------- */
+const devName = () => { const u = navigator.userAgent, m = u.match(/Android [\d.]+; ([^;)]+?)(?: Build|\))/); return m ? m[1].trim() : /iPhone|iPad/.test(u) ? 'iPhone' : /Windows/.test(u) ? 'Browser Windows' : /Mac/.test(u) ? 'Browser Mac' : 'HP ini'; };
+const _resetDevF = resetDev;
+resetDev = function () { _resetDevF(); if (!DEMO) DEV = [{ n: devName(), s: 'aktif sekarang', me: true }]; };
+
+$('#ovGoogle .stack').insertAdjacentHTML('beforeend', `<div class="greal">
+  <div class="field" style="margin:4px 0 0"><input id="gMail" type="email" placeholder=" " autocomplete="email" inputmode="email"><label for="gMail">Email Google lo</label></div>
+  <button class="btn pri" id="gGo" style="width:100%;margin-top:10px">Lanjut</button>
+  <small>Versi tes: login Google beneran nyusul. Sekarang cukup ketik email lo.</small></div>`);
+$('#gGo').onclick = () => {
+  const v = $('#gMail').value.trim();
+  if (!emailRe.test(v)) { shake($('#gMail').parentElement); toast('Format emailnya belum bener.', null); return; }
+  $('#email').value = v;
+  if (!$('#nick').value) { const n = v.split('@')[0].replace(/[^\p{L} ]+/gu, ' ').trim().split(/\s+/)[0] || ''; $('#nick').value = n ? n[0].toUpperCase() + n.slice(1) : ''; nickInput(); }
+  $('#ovGoogle').classList.remove('on'); go('a5');
+};
+
+/* ---------- feed: cuma postingan lo sendiri ---------- */
+const _renderFeedF = renderFeed;
+renderFeed = function () {
+  if (DEMO) return _renderFeedF();
+  posts.forEach(p => { if (p.meta) p.meta = p.meta.replace(' · Jakarta Pusat', '').replace(selBikes.size ? /$^/ : ' · Gravel', ''); });
+  $('#feed').innerHTML = posts.length ? posts.map(postHtml).join('') : feedEmpty();
+  posts.forEach(p => p.isNew = false);
+};
+const _postHtmlF = postHtml;
+postHtml = function (p) {
+  const h = _postHtmlF(p);
+  return DEMO || p.liked ? h : h.replace(/<p class="liked">[^<]*<\/p>/, '<p class="liked">Belum ada yang ngegas. Bagiin ke temen lo!</p>');
+};
+const _rideForPostF = rideForPost;
+rideForPost = function () {
+  const r = _rideForPostF();
+  if (DEMO) return r;
+  return r ? { ...r, gas: 0, liked: '' } : { with: 'sendirian', gas: 0, liked: '', route: R.route || 'Gowes bebas', st: ['–', '–', '–', '–'], mapHtml: `<div class="noroute big">${icon('route', 36)}</div>` };
+};
+
+/* ---------- abis gowes: catet ke riwayat + pencapaian lo ---------- */
+const _setNewbieF = setNewbie;
+setNewbie = function (on, keepAch) {
+  if (DEMO) return _setNewbieF(on, keepAch);
+  _setNewbieF(true, true);   // di akun baru nggak ada temen yang tiba-tiba nongol
+};
+const _countAchF = countAch;
+countAch = function () { _countAchF(); if (!DEMO) lsSet(ACH_KEY, ACH); };
+const _renderSummaryF = renderSummary;
+renderSummary = function () { _renderSummaryF(); myLog(); lobbyOn = false; };
+
+/* ---------- profil: angka & grid dari gowesan lo ---------- */
+const _renderH6F = renderH6;
+renderH6 = function () {
+  _renderH6F();
+  if (DEMO) return;
+  const nk = nick() || 'kamu';
+  $('#h6User').textContent = PROF.user || nk.toLowerCase().replace(/[^a-z0-9]+/g, '') + '.gowes';
+  document.body.classList.toggle('newbie', !MY.length);
+  const bk = $('#s-h6 .bio .chips2'); if (bk) bk.innerHTML = [...selBikes].map(x => `<span class="chip">${esc(x)}</span>`).join('');
+  if (!MY.length) return;
+  const km = MY.reduce((a, m) => a + m.km, 0);
+  $('#s-h6 .prof .nums').innerHTML = [[MY.length, 'Gowesan'], [fmtKm(km), 'km total'], [0, 'Temen']].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+  $('#grid3').innerHTML = MY.map(m => `<div>${myThumb(m, 140, 140)}<b>${fmtKm(m.km)} km</b></div>`).join('');
+};
+const _renderH7F = renderH7;
+renderH7 = function () {
+  if (DEMO) return _renderH7F();
+  $('#notifs').innerHTML = emptyBox('bell', 'Belum ada kabar.', 'Nanti di sini muncul yang ngegas gowesan lo, ngajak gowes, atau minta gabung ke rombongan lo.');
+};
+
+/* ---------- tab Jelajah, Rombongan, Cari temen ---------- */
+const _renderJlF = renderJl;
+renderJl = function () {
+  _renderJlF();
+  if (DEMO || $('#jlQ').value.trim() || routes.length) return;
+  $('#jlBody').innerHTML = emptyBox('compass', 'Jelajah masih kosong.', 'Rombongan terbuka &amp; tempat ngopi sepeda bakal nongol pas udah ada pengguna lain di sekitar lo. Rute GPX yang lo upload kesimpen di sini.', 2)
+    + `<div class="esteps"><button class="estep pri" data-gpx><span class="ei">${icon('file', 20)}</span><span class="tx"><b>Upload rute GPX</b><small>Dari gpx.studio, Strava, Komoot, atau Garmin</small></span>${chev()}</button></div>`;
+};
+const _renderRmF = renderRm;
+renderRm = function () {
+  if (DEMO) return _renderRmF();
+  const grp = MY.filter(m => !m.solo);
+  $('#rmBody').innerHTML = (lobbyOn ? `<button class="card rmlive" data-go="r3"><span data-avs="G" data-s="28" class="avs"></span><span class="tx"><b><span class="lv">LOBI</span>${esc(R.name || 'Rombongan lo')}</b><small>Baru lo doang · kode ${CODE_R}</small></span><i class="ic">${icon('chev', 18)}</i></button>` : '')
+    + (grp.length ? `<div class="zsec"><b>Riwayat rombongan</b><span>${grp.length} gowesan</span></div><div class="zlist">${grp.map(m => `<div class="zrow"><span class="th">${myThumb(m, 56, 56)}</span><span class="tx"><b>${esc(m.name)}</b><small>${myDate(m.at)} · ${m.n} orang</small></span><b style="font:800 14px var(--f-dp)">${fmtKm(m.km)} km</b></div>`).join('')}</div>`
+      : emptyBox('group', 'Belum pernah gowes bareng rombongan.', 'Bikin rombongan, ajak temen lewat kode atau link, nanti riwayatnya nongol di sini.', 2) + `<div class="esteps"><button class="estep pri" data-go="r1"><span class="ei">${icon('plus', 20, 2.6)}</span><span class="tx"><b>Bikin rombongan</b><small>Lo jadi Kapten</small></span>${chev()}</button></div>`);
+  hydrate($('#rmBody'));
+};
+const _renderCfF = renderCf;
+renderCf = function () {
+  _renderCfF();
+  if (DEMO || $('#cfQ').value.trim()) return;
+  $('#cfList').innerHTML = emptyBox('search', 'Cari temen pakai nama atau @username', 'Belum ada pengguna lain di versi tes ini. Ajak temen lewat kode rombongan dulu.', 1);
+};
+
+/* ---------- hook navigasi ---------- */
+const myAv = () => $$('#stories .story:first-child .pv, #s-h6 .prof .pv, #p1Av, #cmtForm .pv').forEach(e => { if (e.firstChild && e.firstChild.nodeType === 3) e.firstChild.textContent = PPL.G.i; });
+const _onEnterStateF = onEnterState;
+onEnterState = function (id, back) {
+  _onEnterStateF(id, back); myAv();
+  if (DEMO) return;
+  if (id === 'r3') lobbyOn = true;
+  if (id === 'h5' && !back && !(RIDE && RIDE.done)) $('#h5Story').value = '';
+};
+
+/* ---------- panel kiri = mode demo ---------- */
+document.querySelector('.nav').addEventListener('click', e => { if (e.target.closest('button[data-scr], [id^="nav-"] button')) goDemo(); }, true);
+$('#nav-main').insertAdjacentHTML('beforebegin', '<p class="sub demohint">Buka di HP = akun baru kosong. Klik tombol di panel ini = mode demo (data Saipul, Juleha, dkk.).</p>');
+
+if (/[?&]demo\b/.test(location.search)) { DEMO = false; goReal(); goDemo(); } else goReal();
 
 
 /* ---------- nav panel ---------- */
