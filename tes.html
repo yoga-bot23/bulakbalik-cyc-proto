@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0E0F12">
+<title>Tes Jalan Kaki CYC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0E0F12;--s1:#17191E;--s2:#22252C;--tx:#F2F3F5;--mu:#8A909B;--lime:#D4FF3F;--red:#FF5A5F;--yel:#FFD84A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 Inter,system-ui,sans-serif;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 120px max(16px,env(safe-area-inset-left))}
+.wrap{max-width:560px;margin:0 auto}
+h1{font-size:26px;font-weight:800;margin:8px 0 4px;letter-spacing:-.02em}
+h1 span{color:var(--lime)}
+.sub{color:var(--mu);font-size:13px;margin:0 0 14px}
+.bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0;margin-bottom:6px}
+.prog{height:8px;border-radius:99px;background:var(--s2);overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--lime);transition:width .3s}
+.pt{display:flex;justify-content:space-between;font-size:12px;color:var(--mu);margin-top:6px}
+.pt b{color:var(--tx)}
+h2{font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--lime);margin:22px 0 8px;display:flex;justify-content:space-between}
+h2 small{color:var(--mu);font-weight:600;letter-spacing:0;text-transform:none}
+.it{background:var(--s1);border-radius:14px;margin-bottom:8px;border:1px solid transparent}
+.it.ok{border-color:rgba(212,255,63,.35)}
+.it.bug{border-color:rgba(255,90,95,.6)}
+.row{display:flex;gap:12px;align-items:flex-start;padding:12px}
+.ck{flex:none;width:26px;height:26px;border-radius:8px;border:2px solid #3a3e47;background:transparent;display:grid;place-items:center;cursor:pointer;color:#0E0F12;font-weight:800}
+.it.ok .ck{background:var(--lime);border-color:var(--lime)}
+.it.bug .ck{background:var(--red);border-color:var(--red);color:#fff}
+.tx{flex:1;min-width:0}
+.tx b{display:block;font-weight:700}
+.tx small{display:block;color:var(--mu);font-size:13px;margin-top:2px}
+.bugb{flex:none;font:700 12px Inter,sans-serif;color:var(--mu);background:var(--s2);border:0;border-radius:8px;padding:6px 8px;cursor:pointer}
+.it.bug .bugb{color:#fff;background:var(--red)}
+.note{display:none;width:calc(100% - 24px);margin:0 12px 12px;background:var(--s2);color:var(--tx);border:0;border-radius:10px;padding:10px;font:14px Inter,sans-serif;resize:vertical;min-height:60px}
+.it.bug .note,.it.hasnote .note{display:block}
+.prep .it .row{padding:10px 12px}
+.ft{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(transparent,var(--bg) 30%);padding:24px max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.ft .in{max-width:560px;margin:0 auto;display:flex;gap:8px}
+.btn{flex:1;height:48px;border-radius:14px;border:0;font:800 15px Inter,sans-serif;cursor:pointer}
+.pri{background:var(--lime);color:#0E0F12}
+.gh{flex:none;padding:0 16px;background:var(--s2);color:var(--tx)}
+.tip{background:rgba(255,216,74,.1);border:1px solid rgba(255,216,74,.3);color:var(--yel);border-radius:12px;padding:10px 12px;font-size:13px;margin-top:8px}
+.tip b{color:var(--tx)}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--tx);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:700;font-size:14px;transition:.25s;pointer-events:none}
+.toast.on{opacity:1;transform:translateX(-50%)}
+button:focus-visible,textarea:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Tes jalan kaki <span>CYC</span></h1>
+  <p class="sub">Malem ini, 16 Okt 2026 · jalan kaki muter rumah pakai GPS HP, ±30–45 mnt total. Tap kotak = beres. Tap <b>Bug</b> kalau ada yang aneh, terus tulis catetannya.</p>
+
+  <div class="bar">
+    <div class="prog"><i id="pg"></i></div>
+    <div class="pt"><span><b id="nOk">0</b> beres · <b id="nBug" style="color:var(--red)">0</b> bug</span><span id="nTot"></span></div>
+  </div>
+
+  <div id="list"></div>
+
+  <div class="tip"><b>Inget:</b> GPS cuma jalan kalau layar nyala dan app kebuka di depan. Jangan pindah ke app lain lama-lama, kecuali pas tes "Tutup paksa app".</div>
+</div>
+
+<div class="ft"><div class="in">
+  <button class="btn pri" id="copy">Salin hasil buat Claude</button>
+  <button class="btn gh" id="reset">Ulang</button>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const DATA = [
+  ['0 · Siapin (sebelum keluar)', true, [
+    ['HP dicas ≥80%', 'Powerbank + kabel dibawa kalau jalannya lama'],
+    ['Bikin GPX rute jalan kaki', 'gpx.studio → mode Jalan kaki → muter blok deket rumah 1–2 km, start = finish di depan rumah. Download, simpen di HP'],
+    ['Lokasi HP: Akurasi tinggi', 'Setelan → Lokasi → Akurasi lokasi Google nyala'],
+    ['Hemat baterai mati', 'Chrome dikecualiin dari optimasi baterai'],
+    ['Pembanding nyala', 'Opsional: Strava (mode Jalan) atau Google Fit jalan bareng'],
+    ['Aman di jalan', 'Malem: lewat trotoar yang terang, jangan ngeliatin HP pas nyebrang'],
+  ]],
+  ['A · Akun baru (di rumah, ±5 mnt)', false, [
+    ['Buka link + install ke layar utama', 'Chrome → ⋮ → Tambahkan ke layar utama. Abis itu buka dari ikon, bukan dari Chrome'],
+    ['Daftar dari awal sampe Beranda', 'Isi email lo, kode OTP demo: 123456. Isi nama + sepeda'],
+    ['Beranda kosong', 'Feed sepi, story cuma "Lo", nggak ada Saipul/Juleha/Goy'],
+    ['Profil kosong', 'Nama & huruf avatar = nama lo, 0 gowesan, lencana belum kebuka'],
+    ['Tab Jelajah, Rombongan, Notif kosong', 'Semua nunjukin layar kosong, bukan data contoh'],
+  ]],
+  ['B · Siapin rute (di rumah)', false, [
+    ['Mulai tanpa rute → diblok', 'Tombol Gowes tengah → Gowes sendiri → langsung tekan Mulai. Harus ada pesan "Pilih rute dulu"'],
+    ['Upload GPX kebaca', 'Pilih → Upload file GPX. Nama rute + jarak nongol, gambarnya bener'],
+    ['Tutup app total, buka lagi', 'Masuk lagi ke Gowes sendiri → Pilih: rute lo masih ada di "Rute tersimpan"'],
+    ['Toggle GPS nyala', '"Pakai GPS HP beneran" = nyala'],
+  ]],
+  ['C · Start (di depan rumah)', false, [
+    ['Izin lokasi → izinin', 'Muncul pas tekan Mulai. Abis itu hitung mundur 3-2-1'],
+    ['Peta OSM muncul', 'Titik lo di posisi yang bener (cek sama Google Maps), lingkaran akurasi kecil'],
+    ['Rute GPX kegambar', 'Garis lime rute + titik finish keliatan'],
+  ]],
+  ['D · Selama jalan (±15–25 mnt)', false, [
+    ['Titik ngikutin lo', 'Gerak pas lo jalan, nggak loncat ke gedung/jalan sebelah'],
+    ['Jarak nambah', 'Jalan kaki ±5 km/j. Catet angka di app tiap 5 menit kalau sempet'],
+    ['Layar nggak mati sendiri', 'Biarin tanpa disentuh 2–3 menit'],
+    ['Diem 1 menit → jarak nggak nambah', 'Berdiri diem di satu titik. Ini juga kecatet sebagai BERHENTI'],
+    ['Rute yang udah lewat jadi abu', ''],
+    ['Keluar rute >60 m → ada notif', 'Belok ke gang lain sebentar (±1 blok), terus balik ke rute'],
+    ['Geser peta → "Ikutin posisi"', 'Geser pakai jari, tombol muncul, tap → peta balik ke lo'],
+    ['Matiin data seluler 1 menit', 'GPS tetep jalan? Peta yang udah kebuka tetep keliatan? Nyalain lagi'],
+    ['Tutup paksa app, buka lagi', 'Swipe app dari recent, buka dari ikon → harus muncul "Gowesan tadi kepotong"'],
+  ]],
+  ['E · Rekaman kepotong', false, [
+    ['Liat ringkasan', 'Dari dialog tadi. Jejak sampe titik lo nutup app keliatan'],
+    ['Mulai lagi buat sisa rute', 'Gowes sendiri → pilih rute yang sama → Mulai, terusin jalan sampe rumah'],
+    ['Sampe finish → selesai otomatis', 'Kejadian kalau udah ≥80% jarak rute. Kalau nggak, tekan Selesai manual & catet'],
+  ]],
+  ['F · Abis selesai (di rumah)', false, [
+    ['Ringkasan masuk akal', 'Peta jejak asli, jarak, waktu, rata-rata ±4–6 km/j, BERHENTI ada'],
+    ['NANJAK', 'Jalan rata harusnya kecil (0–10 m) atau "–". Catet angkanya'],
+    ['Bandingin sama Strava/Fit', 'Tulis jarak app vs pembanding'],
+    ['Bagiin → Strava → GPX', 'File ke-download. Upload manual di strava.com → jejaknya sama'],
+    ['Bagiin → Simpan gambar', 'Kartu PNG kesimpen di galeri/download'],
+    ['Posting ke feed', 'Isi judul → Bagikan. Postingan pakai peta jejak + nama lo'],
+    ['Profil keupdate', 'Gowesan = 1–2, km total sesuai, lencana Gowes sendiri nambah'],
+    ['Tutup app, buka lagi', 'Profil + pencapaian masih ada'],
+  ]],
+  ['G · Rombongan (di rumah, tanpa temen)', false, [
+    ['Bikin rombongan: titik kumpul wajib', 'Gowes → Bareng rombongan. Kosongin titik kumpul → Lanjut harus diblok'],
+    ['Lobi baru lo doang', 'Nggak ada yang tiba-tiba minta gabung. Tombol Gas mati: "ajak minimal 1 temen"'],
+    ['Tab Rombongan', 'Kartu LOBI punya lo muncul'],
+    ['Gabung pakai kode', 'Masukin kode apa aja → "Kode nggak ketemu… belum bisa"'],
+  ]],
+  ['H · Catetan umum', false, [
+    ['Baterai', 'Tulis persen pas mulai & selesai'],
+    ['HP panas?', 'Tulis kalau kerasa panas'],
+    ['Hal lain yang aneh', 'Tampilan kepotong, tombol nggak bisa dipencet, teks aneh, dll.'],
+  ]],
+];
+const KEY = 'cyc.tes.jalan1';
+let S = {}; try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (_) { }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (_) { } };
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const ids = [];
+document.getElementById('list').innerHTML = DATA.map(([g, prep, items], gi) =>
+  `<h2>${esc(g)}<small id="g${gi}"></small></h2><div class="${prep ? 'prep' : ''}">` + items.map(([t, d], i) => {
+    const id = gi + '-' + i; ids.push([id, gi]);
+    return `<div class="it" data-id="${id}"><div class="row"><button class="ck" aria-label="Beres">✓</button><div class="tx"><b>${esc(t)}</b>${d ? `<small>${esc(d)}</small>` : ''}</div>${prep ? '' : '<button class="bugb">Bug</button>'}</div><textarea class="note" id="n${id}" placeholder="Catetan: apa yang kejadian, di mana, jam berapa"></textarea></div>`;
+  }).join('') + '</div>').join('');
+function paint() {
+  let ok = 0, bug = 0;
+  document.querySelectorAll('.it').forEach(el => {
+    const s = S[el.dataset.id] || {};
+    el.classList.toggle('ok', s.st === 'ok'); el.classList.toggle('bug', s.st === 'bug'); el.classList.toggle('hasnote', !!s.note);
+    el.querySelector('.ck').textContent = s.st === 'bug' ? '!' : '✓';
+    const n = el.querySelector('.note'); if (document.activeElement !== n) n.value = s.note || '';
+    if (s.st === 'ok') ok++; if (s.st === 'bug') bug++;
+  });
+  DATA.forEach((g, gi) => { const mine = ids.filter(x => x[1] === gi), d = mine.filter(([id]) => S[id] && S[id].st).length; document.getElementById('g' + gi).textContent = `${d}/${mine.length}`; });
+  document.getElementById('nOk').textContent = ok; document.getElementById('nBug').textContent = bug;
+  document.getElementById('nTot').textContent = `${ok + bug} dari ${ids.length}`;
+  document.getElementById('pg').style.width = ((ok + bug) / ids.length * 100) + '%';
+}
+document.getElementById('list').addEventListener('click', e => {
+  const it = e.target.closest('.it'); if (!it) return; const id = it.dataset.id, s = S[id] || (S[id] = {});
+  if (e.target.closest('.ck')) s.st = s.st ? null : 'ok';
+  else if (e.target.closest('.bugb')) { s.st = s.st === 'bug' ? null : 'bug'; if (s.st === 'bug') setTimeout(() => it.querySelector('.note').focus(), 50); }
+  else return;
+  save(); paint();
+});
+document.getElementById('list').addEventListener('input', e => {
+  if (!e.target.classList.contains('note')) return; const id = e.target.closest('.it').dataset.id;
+  (S[id] || (S[id] = {})).note = e.target.value; save();
+});
+const toast = t => { const el = document.getElementById('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); };
+document.getElementById('copy').onclick = () => {
+  const out = ['Hasil tes jalan kaki CYC (16 Okt)'];
+  DATA.forEach(([g, prep, items], gi) => {
+    if (prep) return; out.push('', g);
+    items.forEach(([t], i) => { const s = S[gi + '-' + i] || {}; out.push(`${s.st === 'ok' ? '[OK]' : s.st === 'bug' ? '[BUG]' : '[ - ]'} ${t}${s.note ? ' — ' + s.note.trim() : ''}`); });
+  });
+  const txt = out.join('\n');
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Disalin. Tempel ke Claude.'), () => {
+    const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Disalin. Tempel ke Claude.'); } catch (_) { toast('Gagal nyalin'); } ta.remove();
+  });
+};
+let resetArm = 0;
+document.getElementById('reset').onclick = e => {
+  if (Date.now() - resetArm > 3000) { resetArm = Date.now(); e.target.textContent = 'Yakin?'; setTimeout(() => e.target.textContent = 'Ulang', 3000); return; }
+  S = {}; save(); paint(); e.target.textContent = 'Ulang'; toast('Checklist dikosongin');
+};
+paint();
+</script>
+</body>
+</html>
