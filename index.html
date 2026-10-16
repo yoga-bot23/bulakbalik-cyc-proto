@@ -1339,6 +1339,24 @@ body.newbie #grid3{display:block}
 .wheels .hl{position:absolute;left:50%;top:50%;width:210px;height:44px;margin:-22px 0 0 -105px;border-radius:14px;background:var(--s2);border:1px solid var(--line)}
 .btn[hidden],button[hidden]{display:none!important}
 
+/* ================= S4 · PETA OSM (Leaflet) ================= */
+#gLeaf{position:absolute;inset:0;z-index:0;background:#121418;display:none}
+.gmap.leaf #gLeaf{display:block}
+.gmap.leaf #gSvg,.gmap.leaf #gRiders{display:none}
+#gLeaf .leaflet-control-attribution{background:rgba(14,15,18,.7);color:#8B919C;font:10px/14px Inter,sans-serif;padding:1px 6px;border-radius:6px 0 0 0}
+#gLeaf .leaflet-control-attribution a{color:#8B919C}
+.lfme{position:relative;width:0;height:0}
+.lfme b{z-index:1;position:absolute;left:-22px;top:-22px;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font:700 15px/1 Inter,sans-serif;color:#0E0F12;border:3px solid #0E0F12;box-shadow:0 0 0 5px rgba(212,255,63,.22),0 8px 20px rgba(0,0,0,.5)}
+.lfme i{position:absolute;left:-30px;top:-30px;width:60px;height:60px;transition:transform .4s;filter:drop-shadow(0 0 1.5px #0E0F12) drop-shadow(0 0 1.5px #0E0F12)}
+.lfme i::before{content:"";position:absolute;left:50%;top:-10px;width:18px;height:12px;margin-left:-9px;background:var(--lime);clip-path:polygon(50% 0,100% 100%,50% 72%,0 100%)}
+.lfin{position:relative;width:0;height:0}
+.lfin span{position:absolute;left:-14px;bottom:10px;display:flex;align-items:center;gap:5px;padding:4px 9px 4px 7px;border-radius:9px;background:var(--brand);color:#fff;font:11px/1.2 Inter,sans-serif;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.lfin i{position:absolute;left:-8px;top:-8px;width:16px;height:16px;border-radius:50%;background:#C4252B;border:3px solid #F2F3F5;box-sizing:border-box}
+.grecenter{position:absolute;right:12px;z-index:6;height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:rgba(23,25,30,.92);color:var(--lime);font:600 13px/1 Inter,sans-serif;display:flex;align-items:center;gap:6px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+.grecenter[hidden]{display:none}
+/* tile OSM terang → digelapin biar nyatu sama app */
+#gLeaf .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.35)}
+
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -1925,6 +1943,7 @@ body.calm *,body.calm *::before,body.calm *::after{animation-duration:.01ms!impo
           <div id="gRiders"></div>
         </div>
         <div class="gshade"></div>
+        <button class="grecenter" id="gRecenter" hidden>◎ Ikutin posisi</button>
 
         <div class="gtop">
           <div class="gturn" id="gTurn">
@@ -5082,6 +5101,134 @@ $('#recSum').onclick = () => {
   const was = cur; finishRide(); if (was === 'g7') renderSummary();
 };
 setTimeout(recCheck, 1500);
+
+/* ================= S4 · PETA OSM (Leaflet) — cuma pas GPS asli nyala ================= */
+/* Simulasi / demo tetep pakai peta SVG. Leaflet dimuat pas perlu (gpsArm), gagal muat = balik ke SVG. */
+/* Peta utara-di-atas (Leaflet nggak bisa muter); arah lo ditunjukin panah di titik lo. */
+const LEAF = { lib: null, loading: null, map: null, on: false, follow: true, me: null, acc: null, track: null, route: null, done: null, fin: null, cum: null, head: 0 };
+const LEAF_CSS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', LEAF_JS = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+const TILE = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+function leafLoad() {
+  if (LEAF.lib) return Promise.resolve(LEAF.lib);
+  if (LEAF.loading) return LEAF.loading;
+  const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = LEAF_CSS; document.head.appendChild(css);
+  return LEAF.loading = new Promise((ok, no) => {
+    const s = document.createElement('script'); s.src = LEAF_JS;
+    s.onload = () => { LEAF.lib = window.leaflet; try { LEAF.lib.noConflict(); } catch (_) { } ok(LEAF.lib); };   // jangan ganggu `L` (state lobi)
+    s.onerror = () => { LEAF.loading = null; s.remove(); no(new Error('leaflet')); };
+    document.head.appendChild(s);
+  });
+}
+
+function leafInit() {
+  const Lf = LEAF.lib;
+  const box = document.createElement('div'); box.id = 'gLeaf'; $('#gMap').prepend(box);
+  const map = LEAF.map = Lf.map(box, { zoomControl: false, attributionControl: true, zoomSnap: .5, minZoom: 5, maxZoom: 19 }).setView([-6.1754, 106.8272], 15);
+  map.attributionControl.setPrefix(false);
+  Lf.tileLayer(TILE, { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  map.on('dragstart', () => { if (!LEAF.on) return; LEAF.follow = false; $('#gRecenter').hidden = false; });
+  $('#gRecenter').onclick = () => { LEAF.follow = true; $('#gRecenter').hidden = true; leafFollow(true); };
+}
+
+/* nyalain buat gowesan ini (dipanggil abis gpsBind) */
+function leafOn() {
+  if (!RIDE || !RIDE.gps) return leafOff();
+  leafLoad().then(() => {
+    if (!RIDE || !RIDE.gps || RIDE.done) return;
+    if (!LEAF.map) leafInit();
+    const Lf = LEAF.lib, map = LEAF.map;
+    [LEAF.me, LEAF.acc, LEAF.track, LEAF.route, LEAF.done, LEAF.fin].forEach(x => x && x.remove());
+    LEAF.route = LEAF.done = LEAF.fin = LEAF.cum = null;
+    const gp = gpxOn() && routes[ri][3];
+    if (gp) {
+      const ll = gp.map(p => [p[0], p[1]]);
+      LEAF.cum = [0]; for (let i = 1; i < ll.length; i++) LEAF.cum.push(LEAF.cum[i - 1] + hav(ll[i - 1], ll[i]));
+      Lf.polyline(ll, { color: '#D4FF3F', weight: 18, opacity: .14, interactive: false }).addTo(map);
+      LEAF.route = Lf.polyline(ll, { color: '#D4FF3F', weight: 6, opacity: .95, lineJoin: 'round', interactive: false }).addTo(map);
+      LEAF.done = Lf.polyline([], { color: '#5E6670', weight: 6, opacity: 1, interactive: false }).addTo(map);
+      Lf.circleMarker(ll[0], { radius: 7, color: '#F2F3F5', weight: 3, fillColor: '#0E0F12', fillOpacity: 1, interactive: false }).addTo(map);
+      LEAF.fin = Lf.marker(ll[ll.length - 1], { interactive: false, icon: Lf.divIcon({ className: 'lfin', iconSize: null, html: `<i></i><span>${$('#gFin').innerHTML.replace(/ id="[^"]*"/g, '')}</span>` }) }).addTo(map);
+      LEAF.routeLL = ll;
+    }
+    LEAF.track = Lf.polyline([], { color: gp ? '#7FA8FF' : '#D4FF3F', weight: gp ? 3 : 6, opacity: .95, interactive: false }).addTo(map);
+    LEAF.acc = Lf.circle([0, 0], { radius: 1, color: '#D4FF3F', weight: 1, opacity: .4, fillOpacity: .08, interactive: false });
+    LEAF.me = Lf.marker([0, 0], { interactive: false, zIndexOffset: 1000, icon: Lf.divIcon({ className: 'lfme', iconSize: null, html: `<i></i><b style="background:${PPL.G.c}">${RIDE.me}</b>` }) });
+    LEAF.on = true; LEAF.follow = true; LEAF.placed = false; $('#gRecenter').hidden = true;
+    $('#gMap').classList.add('leaf');
+    leafPanel(); map.invalidateSize();
+    const here = GPS.last && [GPS.last.coords.latitude, GPS.last.coords.longitude];
+    if (here) leafFix(GPS.last);
+    else if (gp) map.fitBounds(LEAF.route.getBounds(), { paddingTopLeft: [24, leafTop()], paddingBottomRight: [24, leafBot()] });
+  }).catch(() => { leafOff(); gNote('Peta online nggak kemuat. Pakai peta sederhana dulu.', 'warn'); });
+}
+function leafOff() {
+  LEAF.on = false; $('#gMap').classList.remove('leaf');
+  const r = $('#gRecenter'); if (r) r.hidden = true;
+}
+
+/* area yang nggak ketutup kartu atas & panel bawah */
+const leafTop = () => $('#gSig').hidden ? 196 : $('#gSig').offsetTop + $('#gSig').offsetHeight + 24;
+const leafBot = () => $('.gpanel').offsetHeight + 40;
+function leafPanel() { const ph = $('.gpanel').offsetHeight, lb = $('#gLeaf .leaflet-bottom'); if (lb) lb.style.bottom = ph + 'px'; $('#gRecenter').style.bottom = ph + 24 + 'px'; }
+
+function leafFollow(anim) {
+  if (!LEAF.on || !LEAF.follow || !LEAF.placed) return;
+  const map = LEAF.map, z = Math.max(map.getZoom(), 16), H = map.getSize().y;
+  const dy = (leafTop() + (H - leafBot())) / 2 - H / 2;   // posisi lo di tengah area yang keliatan
+  const c = map.unproject(map.project(LEAF.me.getLatLng(), z).subtract([0, dy]), z);
+  map.setView(c, z, { animate: !!anim, duration: .6 });
+}
+
+/* tiap fix GPS */
+function leafFix(pos) {
+  if (!LEAF.on || !RIDE || !RIDE.gps) return;
+  const c = pos.coords, here = [c.latitude, c.longitude], map = LEAF.map, g = RIDE.gps;
+  if (c.accuracy > ACC_MAX && LEAF.placed) return;
+  // arah: dari kompas GPS kalau gerak, kalau nggak dari 2 titik jejak terakhir
+  const t = g.track, a = t[t.length - 2], b = t[t.length - 1];
+  if (c.heading != null && !isNaN(c.heading) && (c.speed || 0) > 1) LEAF.head = c.heading;
+  else if (a && b && hav(a, b) > 3) LEAF.head = brg(a, b);
+  LEAF.me.setLatLng(here); LEAF.acc.setLatLng(here).setRadius(Math.max(4, c.accuracy));
+  if (!LEAF.placed) { LEAF.me.addTo(map); LEAF.acc.addTo(map); LEAF.placed = true; map.setZoom(17, { animate: false }); }
+  const arr = LEAF.me.getElement() && LEAF.me.getElement().querySelector('i');
+  if (arr) arr.style.transform = `rotate(${LEAF.head.toFixed(0)}deg)`;
+  LEAF.track.setLatLngs(t.map(p => [p[0], p[1]]));
+  if (LEAF.route && g.snap != null) LEAF.done.setLatLngs(leafCut(g.snap));
+  leafFollow(true);
+}
+/* potongan rute GPX dari start sampe jarak d (meter) */
+function leafCut(d) {
+  const ll = LEAF.routeLL, cu = LEAF.cum; if (!ll) return [];
+  let i = 1; while (i < cu.length && cu[i] < d) i++;
+  if (i >= cu.length) return ll;
+  const f = (d - cu[i - 1]) / ((cu[i] - cu[i - 1]) || 1), p = ll[i - 1], q = ll[i];
+  return ll.slice(0, i).concat([[p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]]);
+}
+const brg = (a, b) => {
+  const r = Math.PI / 180, y = Math.sin((b[1] - a[1]) * r) * Math.cos(b[0] * r);
+  const x = Math.cos(a[0] * r) * Math.sin(b[0] * r) - Math.sin(a[0] * r) * Math.cos(b[0] * r) * Math.cos((b[1] - a[1]) * r);
+  return (Math.atan2(y, x) / r + 360) % 360;
+};
+
+/* ---------- pasang ke kode lama ---------- */
+const _gpsArmM = gpsArm;
+gpsArm = function () { const ok = _gpsArmM.apply(this, arguments); if (ok && GPS.armed) leafLoad().catch(() => { }); return ok; };   // muat duluan pas hitung mundur
+const _gpsBindM = gpsBind;
+gpsBind = function () { _gpsBindM.apply(this, arguments); RIDE.gps ? leafOn() : leafOff(); };
+const _rideFixM = rideFix;
+rideFix = function (pos) { _rideFixM.apply(this, arguments); leafFix(pos); };
+const _renderMapM = renderMap;
+renderMap = function () { _renderMapM.apply(this, arguments); if (LEAF.on) $('#gNeedle').style.transform = 'rotate(0deg)'; };
+const _xDecideM = xDecide;
+xDecide = function (a) { _xDecideM.apply(this, arguments); if (a === 'gpsSim') leafOff(); };
+const _onEnterGpsM = onEnterGps;
+onEnterGps = function (id) {
+  _onEnterGpsM.apply(this, arguments);
+  if (id === 's2' && GPS.want && gpsOk()) leafLoad().catch(() => { });
+  if (id === 'g1' && LEAF.on) setTimeout(() => { LEAF.map.invalidateSize(); leafPanel(); leafFollow(false); }, 60);
+  if (id !== 'g1' && LEAF.on && (!RIDE || RIDE.done)) leafOff();
+};
 
 
 /* ---------- nav panel ---------- */
