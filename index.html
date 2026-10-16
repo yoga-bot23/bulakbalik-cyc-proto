@@ -4912,6 +4912,177 @@ function gpsLabel() {
 /* ---------- hook navigasi ---------- */
 function onEnterGps(id) { if (id === 's2') gpsTogUI(); }
 
+/* ================= S6 · REKAMAN GPS → RINGKASAN (+ autosave, GPX asli) ================= */
+/* Pas GPS nyala: ringkasan pakai jejak asli (peta, nanjak dari altitude, berhenti dari jejak), GPX buat Strava = titik GPS beneran.
+   Rekaman disimpen ke localStorage tiap 15 dtk + pas app ke-background, biar kalau browser ke-kill masih bisa diliat ringkasannya. */
+const REC_KEY = 'cyc.rec', RIDES_KEY = 'cyc.rides';
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k)); } catch (_) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } };
+const lsDel = k => { try { localStorage.removeItem(k); } catch (_) { } };
+const recLabel = () => rFree || isFree() ? 'Gowes bebas' : R.route;
+
+/* jejak dirampingin buat disimpen: titik ≥5 m dari titik terakhir atau ≥30 dtk */
+function thinTrack(tr) {
+  const out = []; let last = null;
+  tr.forEach((p, i) => {
+    if (!last || i === tr.length - 1 || hav(last, p) >= 5 || p[3] - last[3] >= 30000) { out.push([+p[0].toFixed(6), +p[1].toFixed(6), p[2] == null ? null : Math.round(p[2] * 10) / 10, p[3]]); last = p; }
+  });
+  return out;
+}
+function recSnap() {
+  const g = RIDE.gps;
+  return { v: 1, t0: g.t0, at: Date.now(), dist: g.dist, moveT: RIDE.moveT, maxV: RIDE.maxV, route: recLabel(), arrived: RIDE.arrived, track: thinTrack(g.track) };
+}
+let recSavedAt = 0;
+function recSave(force) {
+  if (!RIDE || !RIDE.gps || RIDE.done || RIDE.recovered || !RIDE.gps.track.length) return;
+  if (!force && Date.now() - recSavedAt < 15000) return;
+  recSavedAt = Date.now(); lsSet(REC_KEY, recSnap());
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') recSave(true); });
+addEventListener('pagehide', () => recSave(true));
+
+const _rideFix = rideFix;
+rideFix = function (pos) { _rideFix(pos); recSave(); };
+const _gpsBind = gpsBind;
+gpsBind = function () {
+  _gpsBind();
+  if (RIDE.gps) { RIDE.t0 = new Date(RIDE.gps.t0); recSavedAt = 0; lsDel(REC_KEY); }
+};
+
+/* ---------- hitung dari jejak ---------- */
+function trackClimb(tr) {
+  const al = tr.map(p => p[2]).filter(a => a != null && isFinite(a));
+  if (al.length < 10 || al.length < tr.length * .5) return null;   // HP nggak ngasih altitude
+  const sm = al.map((_, i) => { const w = al.slice(Math.max(0, i - 2), i + 3); return w.reduce((a, b) => a + b, 0) / w.length; });
+  let up = 0, ref = sm[0];
+  sm.forEach(a => { if (a - ref >= 4) { up += a - ref; ref = a; } else if (ref - a >= 4) ref = a; });   // hysteresis 4 m, buang goyang GPS
+  return Math.round(up);
+}
+function trackStops(tr) {
+  const out = []; let i = 0;
+  while (i < tr.length - 1) {
+    let j = i + 1;
+    while (j < tr.length && hav(tr[i], tr[j]) < 20) j++;
+    const dur = (tr[j - 1][3] - tr[i][3]) / 1000;
+    if (dur >= 60) { out.push({ a: tr[i][3], dur }); i = j; } else i++;
+  }
+  return out;
+}
+
+const _finishRide = finishRide;
+finishRide = function () {
+  const g = RIDE.gps;
+  if (g && g.track.length) {
+    RIDE.simT = (Date.now() - g.t0) / 1000;
+    if (RIDE.recovered) RIDE.simT = (RIDE.recAt - g.t0) / 1000;
+    trackStops(g.track).forEach(s => {
+      RIDE.stops.push({ who: RIDE.me, dur: s.dur, all: true });
+      RIDE.log.push({ t: (s.a - g.t0) / 1000, c: 'var(--warn)', txt: `<b>Lo</b> berhenti ${fmtDurW(s.dur)}` });
+    });
+    RIDE.log.sort((a, b) => a.t - b.t);
+  }
+  _finishRide();
+};
+const _countAch = countAch;
+countAch = function () { if (RIDE.gps && RIDE.gps.track.length) RIDE.res.climb = trackClimb(RIDE.gps.track); _countAch(); };
+const _renderSummary = renderSummary;
+renderSummary = function () {
+  const g = RIDE.gps;
+  if (g && g.track.length) RIDE.res.dur = RIDE.simT;
+  _renderSummary();
+  if (!g) return;
+  if (g.track.length > 1) $('#sumMap').innerHTML = trackSvg(372, 220) + `<span class="lbl2">${esc(RIDE.arrived ? R.route : RIDE.recRoute || recLabel())} · jejak GPS</span>`;
+  if (RIDE.res.climb == null) { const b = [...$$('#sumStats > div')].find(d => d.querySelector('small').textContent === 'NANJAK'); if (b) b.querySelector('b').textContent = '–'; }
+  rideArchive();
+};
+
+/* ---------- peta jejak asli ---------- */
+function trackSvg(w, h, o = {}) {
+  const tr = RIDE.gps.track, plan = !RIDE.recovered && gpxOn() && GW.geo;
+  const [la0, lo0] = plan ? GW.geo : tr[0], kx = Math.cos(la0 * Math.PI / 180) * 111320;
+  const xy = p => [(p[1] - lo0) * kx, -(p[0] - la0) * 110540];
+  const pts = tr.map(xy), rp = plan ? [[GW.segs[0].sx, GW.segs[0].sy], ...GW.segs.map(s => [s.ex, s.ey])] : [];
+  const all = pts.concat(rp), xs = all.map(p => p[0]), ys = all.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) + 1, y0 = Math.min(...ys), y1 = Math.max(...ys) + 1;
+  const pad = o.pad ?? .14, k = Math.min(w * (1 - pad * 2) / (x1 - x0), h * (1 - pad * 2) / (y1 - y0), 2);
+  const ox = (w - (x1 - x0) * k) / 2 - x0 * k, oy = (h - (y1 - y0) * k) / 2 - y0 * k;
+  const P = p => `${(p[0] * k + ox).toFixed(1)} ${(p[1] * k + oy).toFixed(1)}`, sw = o.thin ? 2.5 : 4;
+  const d = 'M' + pts.map(P).join(' L'), [sx, sy] = P(pts[0]).split(' '), [ex, ey] = P(pts[pts.length - 1]).split(' ');
+  const r = rng(3301); let streets = '';
+  for (let i = 0; i < 10; i++) { const v = r() < .5, q = r(); streets += v ? `<path d="M${(q * w).toFixed(0)} -10V${h + 10}"/>` : `<path d="M-10 ${(q * h).toFixed(0)}H${w + 10}"/>`; }
+  return `<svg class="mm" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice"><rect width="${w}" height="${h}" fill="#16181D"/>
+    <g fill="none" stroke="rgba(242,243,245,.06)" stroke-width="${o.thin ? 3 : 6}">${streets}</g>
+    ${rp.length ? `<path d="M${rp.map(P).join(' L')}" fill="none" stroke="#5E6670" stroke-width="${sw}" stroke-dasharray="${sw * 1.5} ${sw * 1.5}" stroke-linejoin="round"/>` : ''}
+    <path d="${d}" fill="none" stroke="#D4FF3F" stroke-opacity=".25" stroke-width="${sw * 2.6}" stroke-linecap="round" stroke-linejoin="round"/>
+    <path class="rt" pathLength="1" d="${d}" fill="none" stroke="#D4FF3F" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${sx}" cy="${sy}" r="${sw + 2}" fill="#0E0F12" stroke="#F2F3F5" stroke-width="2.5"/>
+    <circle cx="${ex}" cy="${ey}" r="${sw + 2}" fill="#C4252B" stroke="#F2F3F5" stroke-width="2.5"/></svg>`;
+}
+const _fillH5 = fillH5;
+fillH5 = function () {
+  _fillH5();
+  if (RIDE.gps && RIDE.gps.track.length > 1) { h5Map = trackSvg(140, 140, { thin: 1, pad: .1 }); renderH5Ph(); }
+  if (RIDE.gps) $('#h5Title').value = RIDE.arrived ? `Gowes ke ${finishName()}` : `${RIDE.recRoute || recLabel()} ${fmtKm(RIDE.res.dist)} km`;
+};
+const _rideForPost = rideForPost;
+rideForPost = function () {
+  const p = _rideForPost();
+  if (p && RIDE.gps && RIDE.gps.track.length > 1) { p.mapHtml = trackSvg(340, 200); p.st[3] = RIDE.res.climb == null ? '– m' : RIDE.res.climb + ' m'; }
+  return p;
+};
+
+/* ---------- GPX asli buat Strava ---------- */
+const _rideGpx = rideGpx;
+rideGpx = function () {
+  const tr = RIDE.gps && RIDE.gps.track;
+  if (!tr || tr.length < 2) return _rideGpx();
+  let s = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Bulakbalik CYC" xmlns="http://www.topografix.com/GPX/1/1"><metadata><time>${new Date(tr[0][3]).toISOString()}</time></metadata><trk><name>${esc(RIDE.recRoute || recLabel())}</name><type>cycling</type><trkseg>\n`;
+  tr.forEach(p => { s += `<trkpt lat="${p[0].toFixed(6)}" lon="${p[1].toFixed(6)}">${p[2] != null && isFinite(p[2]) ? `<ele>${p[2].toFixed(1)}</ele>` : ''}<time>${new Date(p[3]).toISOString()}</time></trkpt>\n`; });
+  return new Blob([s + '</trkseg></trk></gpx>'], { type: 'application/gpx+xml' });
+};
+
+/* ---------- riwayat: gowesan GPS yang kelar disimpen (maks 10) ---------- */
+function rideArchive() {
+  const g = RIDE.gps; if (!g || RIDE.archived || !g.track.length) return;
+  RIDE.archived = true; lsDel(REC_KEY);
+  const r = RIDE.res, item = { t0: g.t0, route: RIDE.recRoute || recLabel(), dist: r.dist, dur: r.dur, move: r.move, max: r.max, climb: r.climb, stops: RIDE.stops.length, track: thinTrack(g.track) };
+  const list = (lsGet(RIDES_KEY) || []).filter(x => x.t0 !== g.t0); list.unshift(item);
+  while (list.length && !lsSet(RIDES_KEY, list.slice(0, 10))) list.pop();   // penuh: buang yang paling lama
+}
+
+/* ---------- buka app lagi: ada rekaman yang kepotong ---------- */
+document.querySelector('#ovEnd').insertAdjacentHTML('afterend', `
+      <div class="overlay center" id="ovRec">
+        <div class="dim" data-close></div>
+        <div class="dialog">
+          <div class="ic">${icon('gpsoff', 24)}</div>
+          <h4>Gowesan tadi kepotong</h4>
+          <p class="d" id="recB"></p>
+          <div class="btns"><button class="btn pri" id="recSum">Liat ringkasan</button><button class="btn txt" id="recDrop">Buang rekaman</button></div>
+        </div>
+      </div>`);
+function recCheck() {
+  const s = lsGet(REC_KEY);
+  if (!s || !s.track || s.track.length < 2) return;
+  if (Date.now() - s.at > 48 * 3600e3) return lsDel(REC_KEY);
+  if (RIDE && !RIDE.done && RIDE.gps) return;   // lagi gowes
+  $('#recB').textContent = `${fmtKm(s.dist)} km, mulai ${fmtClock(new Date(s.t0))}, rekaman terakhir ${fmtClock(new Date(s.at))}. Kemungkinan browser nutup app pas di belakang. Rekamannya masih ada.`;
+  open('ovRec');
+}
+$('#recDrop').onclick = () => { lsDel(REC_KEY); closeAll(); toast('Rekaman dibuang.', null); };
+$('#recSum').onclick = () => {
+  const s = lsGet(REC_KEY); closeAll(); if (!s) return;
+  const armed = GPS.armed; GPS.armed = false;
+  startRide('G', true); GPS.armed = armed;
+  RIDE.fresh = false; RIDE.recovered = true; RIDE.recAt = s.at; RIDE.recRoute = s.route; RIDE.arrived = !!s.arrived && s.route === R.route;
+  RIDE.t0 = new Date(s.t0); RIDE.moveT = s.moveT; RIDE.maxV = s.maxV;
+  RIDE.gps = { t0: s.t0, dist: s.dist, prev: null, track: s.track, snap: null, off: 0, offNoted: false, fixAt: 0, acc: null };
+  RIDE.log.push({ t: (s.at - s.t0) / 1000, c: 'var(--mu)', txt: 'Rekaman kepotong (app ketutup), dipulihin' });
+  const was = cur; finishRide(); if (was === 'g7') renderSummary();
+};
+setTimeout(recCheck, 1500);
+
 
 /* ---------- nav panel ---------- */
 const navMain = [['—', 'Splash', () => { hist.length = 0; go('splash'); clearTimeout(splashT); splashT = setTimeout(() => cur === 'splash' && go('a1'), 3400); }, 'splash'],
