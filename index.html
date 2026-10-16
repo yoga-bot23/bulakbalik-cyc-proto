@@ -1355,7 +1355,7 @@ body.newbie #grid3{display:block}
 .grecenter{position:absolute;right:12px;z-index:6;height:40px;padding:0 14px;border-radius:20px;border:1px solid var(--line);background:rgba(23,25,30,.92);color:var(--lime);font:600 13px/1 Inter,sans-serif;display:flex;align-items:center;gap:6px;box-shadow:0 6px 16px rgba(0,0,0,.4)}
 .grecenter[hidden]{display:none}
 /* tile OSM terang → digelapin biar nyatu sama app */
-#gLeaf .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.35)}
+#gLeaf .leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.92) saturate(.35)}
 
 /* S2+S3 · akun baru (body.real) */
 body.real .story:not(:first-child),body.real .livebar,body.real .filters,body.real #bellBd,body.real .a1-brand small,body.real #ovGoogle .acc[data-acc]{display:none}
@@ -1374,6 +1374,9 @@ body.real #rMeet,body.real #rMeetD,body.real #rMeetGanti{display:none}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+body.lite .grain{display:none}
+body.lite .glow{filter:none}
+body.lite *,body.lite *::before,body.lite *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 body.calm *,body.calm *::before,body.calm *::after{animation-duration:.01ms!important;animation-iteration-count:1!important}
 </style>
 </head>
@@ -2477,6 +2480,9 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const wrap = $('#wrap');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const calm = () => reduce || document.body.classList.contains('calm');
+/* mode ringan di HP (layar sentuh) atau ?lite: tanpa parallax, grain, blur kaca; background digambar sekali */
+const LITE = matchMedia('(pointer: coarse)').matches || /[?&]lite/.test(location.search);
+if (LITE) document.body.classList.add('lite');
 
 /* logo clones */
 const logoSrc = $('#logo-src').content.firstElementChild;
@@ -2492,12 +2498,13 @@ $$('.scr').forEach(s => $$('.rv', s).forEach((el, i) => el.style.setProperty('--
 /* ---------- parallax (pointer + gyro), smoothed ---------- */
 let tx = 0, ty = 0, cx = 0, cy = 0;
 addEventListener('pointermove', e => {
+  if (LITE) return;
   const r = wrap.getBoundingClientRect();
   tx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width - .5) * 2));
   ty = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height - .5) * 2));
 });
 addEventListener('deviceorientation', e => {
-  if (e.gamma == null) return;
+  if (LITE || e.gamma == null) return;
   tx = Math.max(-1, Math.min(1, e.gamma / 30));
   ty = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
 });
@@ -2511,6 +2518,7 @@ function size() {
   bg.width = W * dpr; bg.height = H * dpr;
   bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   buildRoute(); sizeConfetti();
+  if (LITE) drawBg(0);
 }
 function drawBg(t) {
   bctx.clearRect(0, 0, W, H);
@@ -2585,12 +2593,16 @@ function drawRiders(t) {
 }
 
 /* ---------- main loop ---------- */
+let lpx = 9, lpy = 9;
 function loop(t) {
   cx += (tx - cx) * 0.08; cy += (ty - cy) * 0.08;
-  document.documentElement.style.setProperty('--px', cx.toFixed(4));
-  document.documentElement.style.setProperty('--py', cy.toFixed(4));
+  if (Math.abs(cx - lpx) > .001 || Math.abs(cy - lpy) > .001) {   // cuma update kalau gerak, biar layar nggak repaint terus
+    lpx = cx; lpy = cy;
+    document.documentElement.style.setProperty('--px', cx.toFixed(4));
+    document.documentElement.style.setProperty('--py', cy.toFixed(4));
+  }
   const tt = calm() ? 0 : t;
-  drawBg(tt);
+  if (!LITE && cur !== 'g1') drawBg(tt);
   drawRiders(calm() ? 4000 : t);
   drawConfetti();
   drawStory(t);
@@ -3065,9 +3077,9 @@ const meets = [['Bundaran HI', '1,2 km dari lo'], ['GBK Pintu 7', '3,4 km dari l
 let ri = 0, mi = 0, rFree = false;
 const R = { name: '', when: 'Sekarang', day: 'Min, 18 Okt', time: '05.30', route: routes[0][0], meet: meets[0][0], style: 'Santai' };
 function setRoute() {
-  const [n, d, s] = routes[ri];
+  const [n, d, s] = routes[ri] || ['', '', 0];
   $('#rRouteN').textContent = rFree ? 'Gowes bebas' : n; $('#rRouteD').textContent = rFree ? 'Navigator yang nentuin jalan' : d;
-  $('#rRouteMap').innerHTML = routeThumb(ri, 64, 64);
+  $('#rRouteMap').innerHTML = routes[ri] ? routeThumb(ri, 64, 64) : `<span class="noroute">${icon('route', 26)}</span>`;
   $('#sRouteN').textContent = $('#rRouteN').textContent; $('#sRouteD').textContent = $('#rRouteD').textContent; $('#sRouteMap').innerHTML = $('#rRouteMap').innerHTML;
   $('#sRoute').classList.toggle('free', rFree); $('#sFree').classList.toggle('on', rFree); $('#sFree').textContent = rFree ? '✓ Gowes bebas tanpa rute · tap buat pakai rute' : 'atau gowes bebas tanpa rute';
   $('#rRoute').classList.toggle('free', rFree); $('#rFree').classList.toggle('on', rFree);

@@ -1,6 +1,6 @@
 // Service worker Bulakbalik CYC: halaman network-first (biar update langsung kepake), sisanya cache-first.
 // VERSION diganti otomatis sama publish.js tiap push.
-const VERSION = '202610161632';
+const VERSION = '202610161658';
 const CACHE = 'cyc-' + VERSION;
 const SHELL = ['./', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 
