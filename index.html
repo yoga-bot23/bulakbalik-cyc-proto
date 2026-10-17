@@ -823,7 +823,7 @@ button.mem:hover{background:var(--s2)}
 .bio b{font-size:16px}
 .bio p{font-size:14px;color:#C9CDD4;margin-top:2px}
 .bio .chips2{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
-.pbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px 16px 0}
+.pbtns{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:8px;padding:14px 16px 0}
 .pbtns button{height:40px;border-radius:12px;background:var(--s1);border:1px solid var(--line);font-weight:700;font-size:13px}
 .badges{display:flex;gap:12px;overflow-x:auto;padding:18px 16px 4px;scrollbar-width:none}
 .badges>div{flex:none;width:74px;text-align:center;font-size:11px;color:var(--mu)}
@@ -3135,6 +3135,8 @@ const whenTxt = () => R.when === 'Sekarang' ? 'Sekarang' : `${R.day} ${R.time}`;
 
 /* ---------- R2 ---------- */
 let CODE_R = 'BLK-4Q7';
+/* nama lo buat teks sapaan: akun baru tanpa nama = 'Bro', bukan nama demo */
+const meName = () => nick() || (document.body.classList.contains('real') ? 'Bro' : 'Goy');
 function renderCode() { $('#bigCode').innerHTML = [...CODE_R].map((c, k) => `<span style="--k:${k}"${c === '-' ? ' class="d"' : ''}>${c}</span>`).join(''); }
 function renderQr() {
   const r = rng(4747), N = 29; let s = '<rect width="29" height="29" fill="#F2F3F5"/>';
@@ -3284,7 +3286,7 @@ function runCountdown() {
   cdT.forEach(clearTimeout); cdT = [];
   const s = $('#s-r8'), num = $('#cdNum'), bar = $('#cdBar');
   s.classList.remove('gone'); num.classList.remove('go');
-  $('#cdT').innerHTML = cdFrom === 's2' ? 'Siap-siap, <em>' + (nick() || 'Goy') + '</em>!' : 'Siap-siap, <em>rombongan</em>!';
+  $('#cdT').innerHTML = cdFrom === 's2' ? 'Siap-siap, <em>' + meName() + '</em>!' : 'Siap-siap, <em>rombongan</em>!';
   const ks = cdFrom === 's2' ? ['G'] : cdFrom === 'r3' ? L.mem.map(m => m.k) : ['G', 'S', 'J', 'U'];
   $('#cdAvs').innerHTML = ks.map((k, i) => pv(k, 44).replace('style="', `style="--k:${i};`)).join('');
   $('#cdMeta').textContent = `${R.name || 'Gowes Minggu Goy'} · ${R.route}`;
@@ -3546,7 +3548,7 @@ $('#notifs').addEventListener('click', e => {
 /* ---------- hook ke navigasi ---------- */
 function onEnterSosial(id, back) {
   wrap.classList.toggle('has-tabs', id === 'h1' || id === 'h6');
-  if (id === 'r1' && !back) { if (!$('#rName').value) $('#rName').value = 'Gowes Minggu ' + (nick() || 'Goy'); $('#r1Next').disabled = false; setRoute(); }
+  if (id === 'r1' && !back) { if (!$('#rName').value) $('#rName').value = 'Gowes Minggu ' + meName(); $('#r1Next').disabled = false; setRoute(); }
   if (id === 'r2') { $('#r2Eye').textContent = $('#rName').value.trim() || 'Gowes Minggu Goy'; if (!back) renderCode(); }
   if (id === 'r3') { renderLobby(); if (!back && L.mem.some(m => m.k === 'J' && !m.ready)) later(() => setReady('J'), 3800); }
   if (id === 'r6' && !back) enterR6();
@@ -3556,7 +3558,7 @@ function onEnterSosial(id, back) {
   if (id === 'h1') { if (!back) $('#bellBd').classList.toggle('hide', false); }
   if (id === 'h7') $('#bellBd').classList.add('hide');
   if (id === 'h3') { enterStory(); onStoryChange(); }
-  if (id === 'h6') { $('#h6Name').textContent = nick() || 'Goy'; }
+  if (id === 'h6') { $('#h6Name').textContent = meName(); }
   if (id === 'a9') loggedIn = true;
   if (id === 'a1') document.body.classList.toggle('invite', pendingInvite);
   onEnterGowes(id, back);
@@ -4169,7 +4171,7 @@ function renderH6() {
   $('#s-h6 .prof .nums').innerHTML = NEWBIE ? ['Gowesan', 'km total', 'Temen'].map(l => `<div><b>0</b><span>${l}</span></div>`).join('') : H6O.nums;
   $('#s-h6 .bio').innerHTML = H6O.bio;
   if (NEWBIE) $('#s-h6 .bio p').textContent = 'Belum ada bio. Tulis gaya gowes lo biar temen gampang nyari.';
-  $('#h6Name').textContent = nick() || 'Goy';
+  $('#h6Name').textContent = meName();
   renderBadges();
   $('#grid3').innerHTML = NEWBIE ? emptyBox('route', 'Belum ada gowesan', 'Gowesan pertama lo bakal nongol di sini, lengkap sama peta rutenya. Lencana kebuka sendiri pas lo gowes.', 2) : H6O.grid;
 }
@@ -4317,7 +4319,7 @@ function onEnterState(id, back) {
   if (id === 'h6') renderH6();
   if (id === 'h7') renderH7();
   if (id === 'r3' && !back && L.mem.length === 1) soloDemo();
-  if (id === 'p1') { $('#p1Name').textContent = nick() || 'Goy'; $('#p1Mail').textContent = email() || 'goy.demo@gmail.com'; $('#p1Dev').textContent = DEV.length; }
+  if (id === 'p1') { $('#p1Name').textContent = meName(); $('#p1Mail').textContent = email() || 'goy.demo@gmail.com'; $('#p1Dev').textContent = DEV.length; }
   if (id === 'p2' && !back) renderDev();
   if (id === 'p5') { $('#p5Mail').textContent = email() || 'goy.demo@gmail.com'; if (!back) startP5(); }
 }
@@ -4407,7 +4409,7 @@ function sampleGpx() {
 /* ---------- S2 gowes sendiri ---------- */
 $('#s2Go').addEventListener('click', e => {
   if (!gpsArm()) return;
-  R.name = $('#soloName').value.trim() || `Gowes pagi ${nick() || 'Goy'}`; R.meet = 'titik lo';
+  R.name = $('#soloName').value.trim() || `Gowes pagi ${meName()}`; R.meet = 'titik lo';
   cdFrom = 's2'; go('r8', e);
 });
 $('#sosYes').addEventListener('click', () => {
@@ -4459,7 +4461,7 @@ function achRow(k, isNew) {
   return `<div class="ach${t ? ' on' : ''}${isNew ? ' new' : ''}" style="--c:${c}"><span class="ai">${icon(ic, 20)}</span><div class="tx"><b><span>${n} &nbsp;${v}x</span>${t ? `<span class="tier">${t}</span>` : ''}</b><div class="bar"><i style="width:${Math.max(4, Math.min(100, v / g * 100))}%"></i></div><small>${next}</small></div></div>`;
 }
 function renderAch() {
-  $('#s8Nick').textContent = nick() || 'Goy';
+  $('#s8Nick').textContent = meName();
   const keys = Object.keys(ACH_META), got = keys.reduce((a, k) => a + TIERS.filter(t => ACH[k] >= t[0]).length, 0);
   $('#s8Sum').textContent = `${got} dari ${keys.length * 3} kebuka · Perunggu 5x · Perak 25x · Emas 50x`;
   $('#achRole').innerHTML = ['kap', 'nav', 'dok', 'swp', 'ang'].map(k => achRow(k)).join('');
@@ -4484,7 +4486,7 @@ function renderSumAch() {
 
 /* ---------- hook navigasi ---------- */
 function onEnterSolo(id, back) {
-  if (id === 's2') { $('#s2Nick').textContent = nick() || 'Goy'; if (!back && !$('#soloName').value) $('#soloName').value = `Gowes pagi ${nick() || 'Goy'}`; $$('.ecN').forEach(e => e.textContent = ecN()); setRoute(); }
+  if (id === 's2') { $('#s2Nick').textContent = meName(); if (!back && !$('#soloName').value) $('#soloName').value = `Gowes pagi ${meName()}`; $$('.ecN').forEach(e => e.textContent = ecN()); setRoute(); }
   if (id === 's8') renderAch();
 }
 
@@ -4561,7 +4563,7 @@ $('#cfList').addEventListener('click', e => { const b = e.target.closest('[data-
 const PROF = { user: 'goy.gowes', bio: 'Gowes pagi, pulang sebelum ngantor. Gravel + roadbike. Rombongan Bulak Balik.', city: 'Jakarta Pusat', bikes: new Set(['Gravel', 'Roadbike']) };
 const epBikes = new Set();
 function enterEp() {
-  $('#epNick').value = nick() || 'Goy'; $('#epUser').value = PROF.user; $('#epBio').value = NEWBIE ? '' : PROF.bio; $('#epCity').value = PROF.city;
+  $('#epNick').value = meName(); $('#epUser').value = PROF.user; $('#epBio').value = NEWBIE ? '' : PROF.bio; $('#epCity').value = PROF.city;
   epBikes.clear(); (selBikes.size ? selBikes : PROF.bikes).forEach(b => epBikes.add(b));
   $('#epBikes').innerHTML = bikes.map(b => `<button data-eb="${b}" class="${epBikes.has(b) ? 'sel' : ''}"><span class="ck">${icon('check', 14, 3)}</span>${b}</button>`).join('');
   $('#epMsg').className = 'msg'; $('#epMsg').textContent = ''; $('#epNickF').classList.remove('err'); $('#epUserF').classList.remove('err');
@@ -4582,7 +4584,7 @@ $('#epSave').onclick = () => {
 };
 function applyProf() {
   $('#h6User').textContent = PROF.user;
-  H6O.bio = `<b id="h6Name">${esc(nick() || 'Goy')}</b><p>${esc(PROF.bio || 'Belum ada bio.')}</p><div class="chips2">${[...PROF.bikes].map(b => `<span class="chip">${esc(b)}</span>`).join('')}<span class="chip">${esc(PROF.city)}</span></div>`;
+  H6O.bio = `<b id="h6Name">${esc(meName())}</b><p>${esc(PROF.bio || 'Belum ada bio.')}</p><div class="chips2">${[...PROF.bikes].map(b => `<span class="chip">${esc(b)}</span>`).join('')}<span class="chip">${esc(PROF.city)}</span></div>`;
   renderH6();
 }
 
