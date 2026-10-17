@@ -1377,6 +1377,21 @@ body.real #rMeet,body.real #rMeetD,body.real #rMeetGanti{display:none}
 .demohint{font-size:12px!important;opacity:.7;margin:6px 0 10px}
 #grid3 .noroute svg,.zrow .th .noroute svg{width:28px!important;height:28px!important}
 
+/* PR 17 Okt · Riwayat gowesan */
+.rwsum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 16px}
+.rwsum div{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:10px 12px}
+.rwsum b{display:block;font:800 18px var(--f-dp);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rwsum span{font-size:11px;color:var(--mu)}
+.zrow .rwkm{font:800 14px var(--f-dp);white-space:nowrap}
+.rwdD{font-size:13px;color:var(--mu);margin:-4px 0 12px}
+.rwdMap{height:220px;border-radius:20px;overflow:hidden;border:1px solid var(--line);display:grid;place-items:center;background:var(--s1);color:var(--lime)}
+.rwdMap svg.mm{width:100%;height:100%}
+.rwdNote{font-size:12px;color:var(--mu);margin:12px 0 0}
+.rwdNote:empty{display:none}
+.rwdBtns{display:flex;flex-direction:column;gap:8px;margin-top:20px}
+.rwdBtns .btn[hidden]{display:none}
+#grid3>div{cursor:pointer}
+
 
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
@@ -3119,7 +3134,7 @@ $('#r1Next').addEventListener('click', e => {
 const whenTxt = () => R.when === 'Sekarang' ? 'Sekarang' : `${R.day} ${R.time}`;
 
 /* ---------- R2 ---------- */
-const CODE_R = 'BLK-4Q7';
+let CODE_R = 'BLK-4Q7';
 function renderCode() { $('#bigCode').innerHTML = [...CODE_R].map((c, k) => `<span style="--k:${k}"${c === '-' ? ' class="d"' : ''}>${c}</span>`).join(''); }
 function renderQr() {
   const r = rng(4747), N = 29; let s = '<rect width="29" height="29" fill="#F2F3F5"/>';
@@ -4605,7 +4620,7 @@ function openPMenu(el) {
 }
 $('#pmList').addEventListener('click', e => {
   const b = e.target.closest('[data-pm]'); if (!b || !pmFor) return; const a = b.dataset.pm, p = pmFor; closeAll();
-  if (a === 'link') { try { navigator.clipboard.writeText(`https://bulakbalik.app/p/${p.id}`); } catch (_) { } toast('Link postingan disalin.', null); }
+  if (a === 'link') { try { navigator.clipboard.writeText(APP_URL); } catch (_) { } toast('Link postingan disalin.', null); }
   if (a === 'save') { const s = $(`[data-p="${p.id}"] [data-save]`); s && !s.classList.contains('on') && s.click(); }
   if (a === 'hide' || a === 'del') {
     const i = posts.indexOf(p); posts.splice(i, 1); renderFeedKeep();
@@ -4614,7 +4629,7 @@ $('#pmList').addEventListener('click', e => {
   if (a === 'report') toast('Makasih. Laporan lo kami cek maks 1x24 jam.', null);
 });
 function sharePost(el) {
-  const p = postOf(el); if (!p) return; const url = `https://bulakbalik.app/p/${p.id}`;
+  const p = postOf(el); if (!p) return; const url = APP_URL;
   if (navigator.share) return navigator.share({ title: p.title || 'Gowesan', url }).catch(() => { });
   try { navigator.clipboard.writeText(url); } catch (_) { }
   toast('Link postingan disalin. Tinggal tempel di WA/IG.', null);
@@ -5546,6 +5561,141 @@ document.querySelector('.nav').addEventListener('click', e => { if (e.target.clo
 $('#nav-main').insertAdjacentHTML('beforebegin', '<p class="sub demohint">Buka di HP = akun baru kosong. Klik tombol di panel ini = mode demo (data Saipul, Juleha, dkk.).</p>');
 
 if (/[?&]demo\b/.test(location.search)) { DEMO = false; goReal(); goDemo(); } else goReal();
+
+/* ================= PR 17 Okt · kode rombongan acak, link beneran, layar Riwayat ================= */
+var APP_URL = 'https://yoga-bot23.github.io/bulakbalik-cyc-proto/';
+const joinUrl = c => APP_URL + '?j=' + encodeURIComponent(c);
+
+/* ---------- kode rombongan: acak tiap bikin rombongan baru (demo tetep BLK-4Q7) ---------- */
+const CODE_AZ = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // tanpa I/L/O/0/1 biar nggak ketuker
+function genCode() {
+  let s = '';
+  try { crypto.getRandomValues(new Uint8Array(3)).forEach(b => s += CODE_AZ[b % CODE_AZ.length]); }
+  catch (_) { for (let i = 0; i < 3; i++) s += CODE_AZ[Math.floor(Math.random() * CODE_AZ.length)]; }
+  return 'BLK-' + s;
+}
+function setCode(c) { CODE_R = c; $('#r3Code').textContent = c; renderCode(); }
+const _resetLobbyRw = resetLobby;
+resetLobby = function () { _resetLobbyRw(); setCode(DEMO ? 'BLK-4Q7' : genCode()); };
+setCode(DEMO ? 'BLK-4Q7' : genCode());
+
+/* ---------- link share: arahin ke app yang online, bukan domain palsu ---------- */
+const copyTxt = t => { try { navigator.clipboard.writeText(t); } catch (_) { } };
+$('#copyLink').onclick = () => { copyTxt(joinUrl(CODE_R)); toast('Link rombongan udah disalin.', null); };
+$('#shareWa').onclick = () => window.open('https://wa.me/?text=' + encodeURIComponent(`Gas gowes bareng "${$('#r2Eye').textContent}"! Gabung pakai kode ${CODE_R} di app Bulakbalik CYC: ${joinUrl(CODE_R)}`), '_blank');
+$('#shareProf').onclick = () => { copyTxt(APP_URL); toast('Link app udah disalin. Profil publik nyusul (butuh server).', null); };
+
+/* buka dari link undangan (?j=BLK-XXX): kodenya diinget, J6 keisi otomatis */
+const PEND_J = (location.search.match(/[?&]j=(BLK-?[A-Z0-9]{3})/i) || [])[1];
+let pendJ = PEND_J ? PEND_J.toUpperCase().replace('-', '') : '';
+const _onEnterStateRw = onEnterState;
+onEnterState = function (id, back) {
+  _onEnterStateRw(id, back);
+  if (id === 'j6' && pendJ) { jc = pendJ; pendJ = ''; renderJc(); }
+  if (id === 'a9' && pendJ) setTimeout(() => toast(`Lo diajak gabung ${PEND_J.toUpperCase()}. Buka tab Rombongan → Gabung pakai kode.`, null), 900);
+  if (id === 'rw') renderRw();
+};
+
+/* ---------- RIWAYAT: semua gowesan lo (MY) + detail dari rekaman GPS (cyc.rides) ---------- */
+document.querySelector('#s-h6').insertAdjacentHTML('afterend', `
+      <section class="scr app" id="s-rw" data-name="Riwayat gowesan">
+        <div class="scr-bg"></div>
+        <div class="scroll" style="padding-bottom:40px">
+          <div class="top rv"><button class="back" data-back aria-label="Kembali"></button><h3 style="font-size:18px">Riwayat gowesan</h3></div>
+          <div class="rwsum rv" id="rwSum"></div>
+          <div class="zlist" id="rwList"></div>
+        </div>
+      </section>
+      <section class="scr app" id="s-rwd" data-name="Detail gowesan">
+        <div class="scr-bg"></div>
+        <div class="scroll" style="padding-bottom:40px">
+          <div class="top rv"><button class="back" data-back aria-label="Kembali"></button><h3 style="font-size:18px" id="rwdT">Gowesan</h3></div>
+          <p class="rwdD rv" id="rwdD"></p>
+          <div class="rwdMap rv" id="rwdMap"></div>
+          <div class="sumStats rv" id="rwdStats"></div>
+          <p class="rwdNote" id="rwdNote"></p>
+          <div class="rwdBtns"><button class="btn pri" id="rwdGpx">Download GPX</button><button class="btn txt" id="rwdDel">Hapus dari riwayat</button></div>
+        </div>
+      </section>`);
+hydrate($('#s-rw')); hydrate($('#s-rwd'));
+
+$('#s-h6 .pbtns').insertAdjacentHTML('beforeend', '<button data-go="rw">Riwayat</button>');
+
+/* demo: contoh riwayat biar layarnya keisi pas mode demo */
+const RW_DEMO = [
+  { at: Date.parse('2026-10-11T08:40'), name: 'Gowes Minggu Goy', km: 42300, n: 4, route: 'Monas → Kota Tua PP', seed: 30, dur: 7920, max: 34.2, climb: 86, stops: 3 },
+  { at: Date.parse('2026-10-08T06:10'), name: 'Gowes pagi', km: 18600, solo: true, n: 1, route: 'Gowes bebas', seed: 37, dur: 3480, max: 29.8, climb: 22, stops: 1 },
+  { at: Date.parse('2026-10-04T16:30'), name: 'Sunset Ancol', km: 27400, n: 3, route: 'Ancol PP', seed: 44, dur: 5400, max: 31.0, climb: 14, stops: 2 },
+  { at: Date.parse('2026-09-28T05:50'), name: 'Sunmori Puncak 2', km: 61000, n: 6, route: 'Gadog → Puncak 2', seed: 51, dur: 14700, max: 52.6, climb: 1240, stops: 5 },
+];
+const rwData = () => DEMO ? RW_DEMO : MY;
+const rideOf = m => m.t0 ? (lsGet(RIDES_KEY) || []).find(r => r.t0 === m.t0) : null;
+const rwThumb = (m, w, h, o) => m.seed ? miniMap(m.seed, w, h, o) : (m.pts && m.pts.length > 1 ? gpxSvg(m.pts, w, h, o) : `<span class="noroute">${icon(m.solo ? 'bike' : 'group', 26)}</span>`);
+
+/* catet t0 rekaman GPS ke entri riwayat biar detailnya bisa dibuka */
+const _renderSummaryRw = renderSummary;
+renderSummary = function () {
+  _renderSummaryRw();
+  if (DEMO || !MY[0] || MY[0].t0 || !RIDE || !RIDE.gps) return;
+  MY[0].t0 = RIDE.gps.t0; MY[0].solo = !!RIDE.solo; lsSet(MY_KEY, MY);
+};
+
+function renderRw() {
+  const L = rwData();
+  if (!L.length) {
+    $('#rwSum').innerHTML = '';
+    $('#rwList').innerHTML = emptyBox('route', 'Belum ada gowesan.', 'Abis lo selesai gowes, gowesannya kesimpen di sini, lengkap sama peta jejaknya.', 2)
+      + `<div class="esteps"><button class="estep pri" data-go="s2"><span class="ei">${icon('bike', 20)}</span><span class="tx"><b>Gowes sendiri</b><small>Pilih rute GPX atau gowes bebas</small></span>${chev()}</button></div>`;
+    return hydrate($('#rwList'));
+  }
+  const km = L.reduce((a, m) => a + m.km, 0);
+  $('#rwSum').innerHTML = [[L.length, 'gowesan'], [fmtKm(km), 'km total'], [fmtKm(Math.max(...L.map(m => m.km))), 'km terjauh']].map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+  $('#rwList').innerHTML = L.map((m, i) => `<button class="zrow" data-rw="${i}"><span class="th">${rwThumb(m, 56, 56, { thin: 1 })}</span><span class="tx"><b>${esc(m.name)}</b><small>${myDate(m.at)} · ${m.solo ? 'sendirian' : m.n + ' orang'}</small></span><b class="rwkm">${fmtKm(m.km)} km</b>${chev()}</button>`).join('');
+}
+
+let rwCur = null;
+function openRwd(i) {
+  const m = rwData()[i]; if (!m) return;
+  const r = DEMO ? m : rideOf(m); rwCur = { i, m, r };
+  $('#rwdT').textContent = m.name;
+  const d = new Date(r && r.t0 || m.at);
+  $('#rwdD').textContent = `${DOWL[d.getDay()]}, ${d.getDate()} ${MONL[d.getMonth()]} ${d.getFullYear()} · ${m.route || 'Gowes bebas'} · ${m.solo ? 'sendirian' : m.n + ' orang'}`;
+  $('#rwdMap').innerHTML = rwThumb(r && r.track && r.track.length > 1 ? { pts: r.track } : m, 372, 220);
+  const avg = r && r.dur ? (m.km / 1000) / (r.dur / 3600) : null, num = (v, dg = 1) => v == null ? '–' : v.toLocaleString('id-ID', { minimumFractionDigits: dg, maximumFractionDigits: dg });
+  $('#rwdStats').innerHTML = [
+    ['JARAK', fmtKm(m.km) + ' km'], ['WAKTU', r && r.dur ? fmtDurW(r.dur) : '–'], ['RATA-RATA', avg ? num(avg) + ' km/j' : '–'],
+    ['MAKS', r && r.max != null ? num(r.max) + ' km/j' : '–'], ['NANJAK', r && r.climb != null ? r.climb + ' m' : '–'], ['BERHENTI', r ? (r.stops || 0) + 'x' : '–'],
+  ].map(([k, v]) => `<div><small>${k}</small><b>${v}</b></div>`).join('');
+  const hasTr = !!(r && r.track && r.track.length > 1);
+  $('#rwdGpx').hidden = !hasTr;
+  $('#rwdNote').textContent = DEMO ? 'Contoh data mode demo.' : hasTr ? '' : 'Gowesan ini nggak direkam pakai GPS HP (simulasi), jadi detail waktu & jejaknya nggak ada.';
+  go('rwd');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-rw]'); if (b) return openRwd(+b.dataset.rw);
+  const g = e.target.closest('#grid3 > div'); if (g && cur === 'h6' && !DEMO && MY.length && $('#ptabs .sel')?.textContent === 'Gowesan') openRwd([...$('#grid3').children].indexOf(g));
+});
+
+$('#rwdGpx').onclick = () => {
+  const r = rwCur && rwCur.r; if (!r || !r.track) return;
+  let s = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Bulakbalik CYC" xmlns="http://www.topografix.com/GPX/1/1"><trk><name>${esc(rwCur.m.name)}</name><type>cycling</type><trkseg>\n`;
+  r.track.forEach(p => { s += `<trkpt lat="${p[0]}" lon="${p[1]}">${p[2] != null ? `<ele>${p[2]}</ele>` : ''}<time>${new Date(p[3]).toISOString()}</time></trkpt>\n`; });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([s + '</trkseg></trk></gpx>'], { type: 'application/gpx+xml' }));
+  const d = new Date(r.t0); a.download = `bulakbalik-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}.gpx`; a.click();
+  toast('GPX udah didownload. Upload manual ke Strava kalau mau.', null);
+};
+$('#rwdDel').onclick = () => {
+  if (!rwCur) return;
+  if (DEMO) { toast('Mode demo: contoh data nggak bisa dihapus.', null); return; }
+  const { m } = rwCur, keep = MY.slice();
+  MY.splice(MY.indexOf(m), 1); lsSet(MY_KEY, MY);
+  if (m.t0) lsSet(RIDES_KEY, (lsGet(RIDES_KEY) || []).filter(r => r.t0 !== m.t0));
+  goBack();
+  toast('Gowesan dihapus dari riwayat.', () => { MY.length = 0; MY.push(...keep); lsSet(MY_KEY, MY); renderRw(); });
+};
+
+/* panel kiri */
+mk([['Z14', 'Riwayat gowesan', () => go('rw'), 'rw'], ['Z14', 'Detail gowesan', () => { if (cur !== 'rw') go('rw'); setTimeout(() => openRwd(0), 500); }, 'rwd']], '#nav-z');
 
 
 /* ---------- nav panel ---------- */
