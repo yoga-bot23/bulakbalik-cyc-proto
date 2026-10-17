@@ -5697,6 +5697,41 @@ $('#rwdDel').onclick = () => {
 /* panel kiri */
 mk([['Z14', 'Riwayat gowesan', () => go('rw'), 'rw'], ['Z14', 'Detail gowesan', () => { if (cur !== 'rw') go('rw'); setTimeout(() => openRwd(0), 500); }, 'rwd']], '#nav-z');
 
+/* ================= Gesture/tombol back HP = back di dalem app (bukan keluar app) =================
+   Satu "jangkar" di history browser. Tiap back HP (popstate) kita tangkep, jalanin aturan app, lalu pasang jangkar lagi.
+   Urutan: tutup sheet/dialog → aturan layar khusus → goBack() → di Beranda: geser 2x buat keluar. */
+const ROOT_TABS = ['jl', 'rm', 'h6', 'h7'], NO_BACK = ['splash', 'load', 'a8', 'a9', 'p6', 'x5', 'x6'];
+let exitArm = 0;
+const anchor = () => { try { history.pushState({ cyc: 1 }, ''); } catch (_) { } };
+try { history.replaceState({ cyc: 0 }, ''); } catch (_) { }
+anchor();
+
+function appBack() {
+  const ov = [...$$('.overlay.on')];
+  if (ov.length) { closeAll(); return true; }
+  if (cur === 'g1' && RIDE && !RIDE.done) { toast('Lagi gowes. Pencet Selesai kalau mau berhenti.', null); return true; }
+  if (cur === 'r8') { toast('Bentar, lagi hitung mundur.', null); return true; }
+  if (cur === 'g7' || cur === 'x5' || cur === 'x6' || cur === 'p6') { hist.length = 0; go(cur === 'p6' ? 'a1' : 'h1', null, true); return true; }
+  if (ROOT_TABS.includes(cur) && hist.length && !ROOT_TABS.concat('h1').includes(hist[hist.length - 1])) { goBack(); return true; }
+  if (ROOT_TABS.includes(cur)) { hist.length = 0; go('h1', null, true); return true; }
+  if (cur === 'h1' || cur === 'a1' || NO_BACK.includes(cur) || !hist.length) {
+    if (Date.now() - exitArm < 2200) return false;   // back kedua cepet = keluar app beneran
+    exitArm = Date.now(); toast('Geser sekali lagi buat keluar.', null); return true;
+  }
+  goBack(); return true;
+}
+addEventListener('popstate', () => {
+  if (appBack()) anchor();
+  else history.back();   // lepas jangkar terakhir → browser/PWA nutup
+});
+
+/* jangan balik ke onboarding/OTP abis masuk Beranda */
+const _onEnterStateBk = onEnterState;
+onEnterState = function (id, back) {
+  _onEnterStateBk(id, back);
+  if (id === 'h1' && hist.some(h => /^(a\d|load|splash)$/.test(h))) hist.length = 0;
+};
+
 
 /* ---------- nav panel ---------- */
 const navMain = [['—', 'Splash', () => { hist.length = 0; go('splash'); clearTimeout(splashT); splashT = setTimeout(() => cur === 'splash' && go('a1'), 3400); }, 'splash'],
